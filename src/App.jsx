@@ -7,6 +7,7 @@ import { WorkOrderForm, WorkOrdersList } from "./WorkOrders.jsx";
 import GanttScheduler from "./GanttScheduler.jsx";
 import { DailyReportForm, DailyReportsList } from "./DailyReports.jsx";
 import BillingTracker from "./BillingTracker.jsx";
+import AdminConfig from "./AdminConfig.jsx";
 
 const ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001';
 
@@ -16,6 +17,7 @@ const navItems = [
   { id: "scheduler", label: "Scheduler", icon: "calendar" },
   { id: "reports", label: "Daily Reports", icon: "report" },
   { id: "billing", label: "Billing", icon: "dollar" },
+  { id: "admin", label: "Admin", icon: "settings" },
 ];
 
 const pageDesc = {
@@ -24,6 +26,7 @@ const pageDesc = {
   scheduler: "Gantt-style scheduling — assign work by available rig and crew",
   reports: "Daily driller reports linked to active work orders",
   billing: "Track billing units, estimated vs. actual costs, and invoicing status",
+  admin: "Manage rigs, crews, staff, billing units, clients, and projects",
 };
 
 function adaptWorkOrders(dbWorkOrders) {
@@ -222,6 +225,8 @@ export default function App() {
         )}
 
         {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}
+
+        {page === "admin" && <AdminConfig orgData={orgData} projects={projects} />}
       </div>
     </div>
   );
