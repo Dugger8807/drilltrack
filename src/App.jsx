@@ -16,12 +16,12 @@ const ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001';
 const navItems = [
   { id: "dashboard", label: "Home", icon: "home" },
   { id: "workorders", label: "WOs", icon: "clipboard" },
+  { id: "scheduler", label: "Schedule", icon: "calendar" },
   { id: "reports", label: "Reports", icon: "report" },
-  { id: "billing", label: "Billing", icon: "dollar" },
   { id: "admin", label: "Admin", icon: "settings" },
 ];
 const desktopOnlyNav = [
-  { id: "scheduler", label: "Scheduler", icon: "calendar" },
+  { id: "billing", label: "Billing", icon: "dollar" },
 ];
 
 function adaptWorkOrders(dbWorkOrders) {
@@ -183,6 +183,7 @@ export default function App() {
 
           {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} isMobile />}
           {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={() => {}} isMobile />}
+          {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} isMobile onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
           {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} isMobile />}
           {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
           {page === "admin" && <AdminConfig orgData={orgData} projects={projects} isMobile />}
@@ -246,7 +247,7 @@ export default function App() {
 
         {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} />}
         {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={() => {}} />}
-        {page === "scheduler" && <GanttScheduler workOrders={workOrders} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
+        {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
         {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} />}
         {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}
         {page === "admin" && <AdminConfig orgData={orgData} projects={projects} />}
