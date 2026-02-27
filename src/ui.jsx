@@ -19,6 +19,7 @@ export const Icon = ({ name, size = 18, color = "currentColor" }) => {
     alert: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4M12 17h.01" /></svg>,
     map: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0118 0z" /><circle cx="12" cy="10" r="3" /></svg>,
     reject: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="12" r="10" /><path d="M15 9l-6 6M9 9l6 6" /></svg>,
+    camera: <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" /><circle cx="12" cy="13" r="4" /></svg>,
   };
   return icons[name] || null;
 };
@@ -44,7 +45,7 @@ export const Priority = ({ level }) => {
 };
 
 export const Btn = ({ children, variant = "primary", onClick, style: s, small, disabled }) => {
-  const base = { display: "inline-flex", alignItems: "center", gap: 6, padding: small ? "5px 12px" : "8px 18px", borderRadius: 6, fontSize: small ? 12 : 13, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", border: "none", transition: "all 0.15s", fontFamily: "inherit", opacity: disabled ? 0.5 : 1 };
+  const base = { display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 6, padding: small ? "8px 14px" : "10px 20px", borderRadius: 8, fontSize: small ? 13 : 14, fontWeight: 600, cursor: disabled ? "not-allowed" : "pointer", border: "none", transition: "all 0.15s", fontFamily: "inherit", opacity: disabled ? 0.5 : 1, minHeight: 36 };
   const variants = {
     primary: { background: theme.accent, color: "#0f1117" },
     secondary: { background: theme.surface2, color: theme.text, border: `1px solid ${theme.border}` },
@@ -56,7 +57,7 @@ export const Btn = ({ children, variant = "primary", onClick, style: s, small, d
 };
 
 export const Field = ({ label, children, required, half }) => (
-  <div style={{ flex: half ? "1 1 calc(50% - 8px)" : "1 1 100%", minWidth: half ? 200 : "auto" }}>
+  <div style={{ flex: half ? "1 1 calc(50% - 8px)" : "1 1 100%", minWidth: half ? 140 : "auto" }}>
     <label style={{ display: "block", fontSize: 11, fontWeight: 600, color: theme.textMuted, marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.06em" }}>
       {label} {required && <span style={{ color: theme.accent }}>*</span>}
     </label>

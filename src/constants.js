@@ -10,6 +10,8 @@ export const STATUS_COLORS = {
   approved: { bg: "#1e2a20", text: "#4ade80", border: "#4ade80" },
   scheduled: { bg: "#1e2028", text: "#a78bfa", border: "#a78bfa" },
   "in-progress": { bg: "#1e2530", text: "#38bdf8", border: "#38bdf8" },
+  in_progress: { bg: "#1e2530", text: "#38bdf8", border: "#38bdf8" },
+  cancelled: { bg: "#2a1a1a", text: "#ef4444", border: "#ef4444" },
   completed: { bg: "#1a2420", text: "#34d399", border: "#34d399" },
   invoiced: { bg: "#2a2025", text: "#f472b6", border: "#f472b6" },
   submitted: { bg: "#1e2028", text: "#a78bfa", border: "#a78bfa" },
@@ -62,5 +64,5 @@ export function getDateRange(workOrders) {
   return { start: min, end: max };
 }
 
-export const inputStyle = { width: "100%", padding: "8px 12px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 13, fontFamily: "inherit", outline: "none", boxSizing: "border-box" };
+export const inputStyle = { width: "100%", padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 14, fontFamily: "inherit", outline: "none", boxSizing: "border-box", WebkitAppearance: "none" };
 export const selectStyle = { ...inputStyle, cursor: "pointer" };

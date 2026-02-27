@@ -103,18 +103,21 @@ export function WOAttachments({ workOrderId, attachments, onRefresh }) {
       )}
 
       {/* Upload form */}
-      <div style={{ background: theme.bg, borderRadius: 8, padding: 12, border: `1px dashed ${theme.border}` }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.kmz,.kml,.jpg,.jpeg,.png,.dwg,.dxf" style={{ fontSize: 11, color: theme.text, flex: "1 1 200px", minWidth: 0 }} />
-          <select value={category} onChange={e => setCategory(e.target.value)} style={{ fontSize: 11, padding: "5px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontFamily: "inherit" }}>
-            {WO_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
-          <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" style={{ fontSize: 11, padding: "5px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, flex: "1 1 150px", fontFamily: "inherit" }} />
-          <Btn small onClick={handleUpload} disabled={uploading}>
-            {uploading ? "Uploading..." : <><Icon name="plus" size={12} /> Upload</>}
-          </Btn>
+      <div style={{ background: theme.bg, borderRadius: 10, padding: 14, border: `1px dashed ${theme.border}` }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            <select value={category} onChange={e => setCategory(e.target.value)} style={{ fontSize: 14, padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontFamily: "inherit", flex: "1 1 140px" }}>
+              {WO_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+            </select>
+            <input value={description} onChange={e => setDescription(e.target.value)} placeholder="Description (optional)" style={{ fontSize: 14, padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, flex: "1 1 150px", fontFamily: "inherit", boxSizing: "border-box" }} />
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <input ref={fileRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.kmz,.kml,.jpg,.jpeg,.png,.dwg,.dxf" style={{ fontSize: 13, color: theme.text, flex: 1, minWidth: 0 }} />
+            <Btn small onClick={handleUpload} disabled={uploading}>
+              {uploading ? "..." : <><Icon name="plus" size={13} /> Upload</>}
+            </Btn>
+          </div>
         </div>
-        <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 6 }}>PDF, Word, Excel, KMZ/KML, Images, CAD files</div>
       </div>
     </div>
   );
@@ -166,31 +169,39 @@ export function DRPhotos({ dailyReportId, photos, onRefresh }) {
     <div>
       {/* Existing photos */}
       {photos && photos.length > 0 && (
-        <div style={{ display: "flex", gap: 10, marginBottom: 14, flexWrap: "wrap" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 8, marginBottom: 14 }}>
           {photos.map(p => (
-            <div key={p.id} style={{ position: "relative", width: 140, background: theme.bg, borderRadius: 8, overflow: "hidden", border: `1px solid ${theme.border}` }}>
+            <div key={p.id} style={{ position: "relative", background: theme.bg, borderRadius: 8, overflow: "hidden", border: `1px solid ${theme.border}` }}>
               <a href={p.file_url} target="_blank" rel="noopener noreferrer">
-                <img src={p.file_url} alt={p.caption || p.file_name} style={{ width: "100%", height: 100, objectFit: "cover", display: "block" }} onError={e => { e.target.style.display = 'none'; }} />
+                <img src={p.file_url} alt={p.caption || p.file_name} style={{ width: "100%", height: 90, objectFit: "cover", display: "block" }} onError={e => { e.target.style.display = 'none'; }} />
               </a>
-              <div style={{ padding: "6px 8px" }}>
+              <div style={{ padding: "4px 6px" }}>
                 <div style={{ fontSize: 10, color: theme.text, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.caption || p.file_name}</div>
               </div>
-              <button onClick={() => deletePhoto(p)} style={{ position: "absolute", top: 4, right: 4, width: 20, height: 20, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.6)", color: "#fff", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              <button onClick={() => deletePhoto(p)} style={{ position: "absolute", top: 4, right: 4, width: 24, height: 24, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 14, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
             </div>
           ))}
         </div>
       )}
 
-      {/* Upload form */}
-      <div style={{ background: theme.bg, borderRadius: 8, padding: 12, border: `1px dashed ${theme.border}` }}>
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-          <input ref={fileRef} type="file" accept="image/*" multiple style={{ fontSize: 11, color: theme.text, flex: "1 1 200px" }} />
-          <input value={caption} onChange={e => setCaption(e.target.value)} placeholder="Caption (optional)" style={{ fontSize: 11, padding: "5px 8px", borderRadius: 6, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, flex: "1 1 150px", fontFamily: "inherit" }} />
-          <Btn small onClick={handleUpload} disabled={uploading}>
-            {uploading ? "Uploading..." : <><Icon name="plus" size={12} /> Upload Photos</>}
-          </Btn>
+      {/* Upload form — mobile friendly with camera */}
+      <div style={{ background: theme.bg, borderRadius: 10, padding: 14, border: `1px dashed ${theme.border}` }}>
+        <div style={{ display: "flex", gap: 8, flexDirection: "column" }}>
+          <input value={caption} onChange={e => setCaption(e.target.value)} placeholder="Caption (optional)" style={{ fontSize: 14, padding: "10px 12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface, color: theme.text, fontFamily: "inherit", width: "100%", boxSizing: "border-box" }} />
+          <div style={{ display: "flex", gap: 8 }}>
+            {/* Camera capture button — opens camera on mobile */}
+            <button onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.capture = 'environment'; input.onchange = async (e) => { const file = e.target.files?.[0]; if (!file) return; setUploading(true); const path = `${dailyReportId}/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`; const url = await uploadFile('dr-photos', path, file); if (url) { await supabase.from('daily_report_photos').insert({ daily_report_id: dailyReportId, file_name: file.name, file_url: url, file_size: file.size, caption, taken_at: new Date().toISOString() }); setCaption(''); onRefresh(); } setUploading(false); }; input.click(); }} style={{ flex: 1, padding: "12px", borderRadius: 8, border: `2px solid ${theme.accent}`, background: theme.accentDim, color: theme.accent, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} disabled={uploading}>
+              <Icon name="camera" size={18} color={theme.accent} />
+              {uploading ? "Uploading..." : "Take Photo"}
+            </button>
+            {/* Gallery picker */}
+            <button onClick={() => fileRef.current?.click()} style={{ flex: 1, padding: "12px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface2, color: theme.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }} disabled={uploading}>
+              <Icon name="plus" size={16} color={theme.textMuted} />
+              Gallery
+            </button>
+          </div>
+          <input ref={fileRef} type="file" accept="image/*" multiple style={{ display: "none" }} onChange={handleUpload} />
         </div>
-        <div style={{ fontSize: 10, color: theme.textMuted, marginTop: 6 }}>JPG, PNG — select multiple files at once</div>
       </div>
     </div>
   );

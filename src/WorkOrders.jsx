@@ -201,7 +201,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 }
 
 // ─── Work Orders List (reads adapted data) ───────────────────────────
-export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
+export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile }) {
   const [filter, setFilter] = useState("all");
   const [expandedWO, setExpandedWO] = useState(null);
   const [attachments, setAttachments] = useState({});
@@ -220,7 +220,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
         {["all", "pending", "approved", "scheduled", "in_progress", "completed", "invoiced"].map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding: "5px 14px", borderRadius: 20, border: `1px solid ${filter === f ? theme.accent : theme.border}`, background: filter === f ? theme.accentDim : "transparent", color: filter === f ? theme.accent : theme.textMuted, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit" }}>
             {f === "all" ? "All" : f.replace("_", " ")} {f !== "all" && `(${workOrders.filter(w => w.status === f).length})`}
@@ -235,15 +235,16 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
           const isOpen = expandedWO === wo.id;
           return (
             <div key={wo.id} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", cursor: "pointer", gap: 12 }} onClick={() => handleExpand(wo.id)}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", padding: isMobile ? "10px 12px" : "12px 18px", cursor: "pointer", gap: 8, flexDirection: isMobile ? "column" : "row" }} onClick={() => handleExpand(wo.id)}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{wo.woNumber}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wo.projectName}</span>
-                  <span style={{ fontSize: 12, color: theme.textMuted }}>{wo.client}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isMobile ? "normal" : "nowrap" }}>{isMobile ? wo.name : wo.projectName}</span>
+                  {!isMobile && <span style={{ fontSize: 12, color: theme.textMuted }}>{wo.client}</span>}
                   <Badge status={wo.status} />
                   <Priority level={wo.priority} />
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {isMobile && <span style={{ fontSize: 11, color: theme.textMuted }}>{wo.client}</span>}
                   <span style={{ fontSize: 11, color: theme.textMuted }}>{wo.borings.length} borings</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>${(wo.estimatedCost || 0).toLocaleString()}</span>
                   <span style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "0.2s" }}><Icon name="chevDown" size={16} color={theme.textMuted} /></span>
@@ -251,8 +252,8 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
               </div>
 
               {isOpen && (
-                <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${theme.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12, paddingTop: 14 }}>
+                <div style={{ padding: isMobile ? "0 12px 14px" : "0 18px 18px", borderTop: `1px solid ${theme.border}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(200px, 1fr))", gap: 10, paddingTop: 12 }}>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Name</span><div style={{ fontSize: 13, color: theme.text }}>{wo.name}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Rig / Crew</span><div style={{ fontSize: 13, color: theme.text }}>{wo.rigName || "—"} / {wo.crewName || "—"}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Dates</span><div style={{ fontSize: 13, color: theme.text }}>{wo.startDate ? `${wo.startDate} → ${wo.endDate}` : "TBD"}</div></div>
@@ -306,7 +307,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
                     {wo.status === "pending" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "approved")}><Icon name="check" size={12} /> Approve</Btn>}
                     {wo.status === "pending" && <Btn variant="danger" small onClick={() => onStatusChange(wo.id, "cancelled")}><Icon name="reject" size={12} /> Reject</Btn>}
                     {wo.status === "approved" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "scheduled")}><Icon name="calendar" size={12} /> Mark Scheduled</Btn>}

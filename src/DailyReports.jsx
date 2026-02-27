@@ -197,7 +197,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 }
 
 // ─── Daily Reports List with Approve/Reject ──────────────────────────
-export function DailyReportsList({ reports, workOrders, onStatusChange }) {
+export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile }) {
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
   const [reviewNotes, setReviewNotes] = useState({});
@@ -217,7 +217,7 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 20, flexWrap: "wrap" }}>
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
         {["all", "draft", "submitted", "approved", "rejected"].map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding: "5px 14px", borderRadius: 20, border: `1px solid ${filter === f ? theme.accent : theme.border}`, background: filter === f ? theme.accentDim : "transparent", color: filter === f ? theme.accent : theme.textMuted, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" }}>
             {f === "all" ? "All" : f} ({f === "all" ? reports.length : reports.filter(r => r.status === f).length})
@@ -235,25 +235,26 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
 
           return (
             <div key={r.id} style={{ background: theme.surface, border: `1px solid ${r.status === "submitted" ? theme.accent + "40" : theme.border}`, borderRadius: 10, overflow: "hidden" }}>
-              <div onClick={() => handleExpand(r.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", cursor: "pointer", gap: 12 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
+              <div onClick={() => handleExpand(r.id)} style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", padding: isMobile ? "10px 12px" : "12px 18px", cursor: "pointer", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{r.reportNumber}</span>
-                  <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{r.projectName || r.workOrderName}</span>
+                  <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{isMobile ? r.workOrderName || r.projectName : r.projectName || r.workOrderName}</span>
                   <span style={{ fontSize: 12, color: theme.textMuted }}>{r.date}</span>
-                  <span style={{ fontSize: 12, color: theme.textMuted }}>{r.driller}</span>
-                  <span style={{ fontSize: 11, color: theme.info, fontWeight: 600 }}>{totalFt} ft</span>
+                  {!isMobile && <span style={{ fontSize: 12, color: theme.textMuted }}>{r.driller}</span>}
                 </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+                  {isMobile && r.driller && <span style={{ fontSize: 11, color: theme.textMuted }}>{r.driller}</span>}
+                  <span style={{ fontSize: 11, color: theme.info, fontWeight: 600 }}>{totalFt} ft</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: theme.accent }}>${totalBilling.toLocaleString()}</span>
                   <Badge status={r.status} />
-                  {r.status === "submitted" && <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(244,165,58,0.15)", color: theme.accent, borderRadius: 10, fontWeight: 700 }}>NEEDS REVIEW</span>}
+                  {r.status === "submitted" && !isMobile && <span style={{ fontSize: 10, padding: "2px 8px", background: "rgba(244,165,58,0.15)", color: theme.accent, borderRadius: 10, fontWeight: 700 }}>NEEDS REVIEW</span>}
                   <span style={{ transform: isOpen ? "rotate(180deg)" : "none", transition: "0.2s" }}><Icon name="chevDown" size={16} color={theme.textMuted} /></span>
                 </div>
               </div>
 
               {isOpen && (
-                <div style={{ padding: "0 18px 18px", borderTop: `1px solid ${theme.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12, paddingTop: 14 }}>
+                <div style={{ padding: isMobile ? "0 12px 14px" : "0 18px 18px", borderTop: `1px solid ${theme.border}` }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, paddingTop: 12 }}>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Rig</span><div style={{ fontSize: 13, color: theme.text }}>{r.rigName} {r.rigType && `(${r.rigType})`}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Crew</span><div style={{ fontSize: 13, color: theme.text }}>{r.crewName}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Hours</span><div style={{ fontSize: 13, color: theme.text }}>{r.startTime} – {r.endTime}</div></div>
@@ -321,9 +322,9 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
                       <Field label="Review Notes">
                         <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={reviewNotes[r.id] || ""} onChange={e => setReviewNotes(prev => ({ ...prev, [r.id]: e.target.value }))} placeholder="Add review notes (required for rejection)..." />
                       </Field>
-                      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-                        <Btn variant="success" onClick={() => onStatusChange(r.id, "approved", reviewNotes[r.id] || '')}><Icon name="check" size={14} /> Approve</Btn>
-                        <Btn variant="danger" onClick={() => { if (!reviewNotes[r.id]) return alert("Please add review notes for rejection."); onStatusChange(r.id, "rejected", reviewNotes[r.id]); }}><Icon name="reject" size={14} /> Reject</Btn>
+                      <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                        <Btn variant="success" style={{ flex: isMobile ? 1 : undefined }} onClick={() => onStatusChange(r.id, "approved", reviewNotes[r.id] || '')}><Icon name="check" size={14} /> Approve</Btn>
+                        <Btn variant="danger" style={{ flex: isMobile ? 1 : undefined }} onClick={() => { if (!reviewNotes[r.id]) return alert("Please add review notes for rejection."); onStatusChange(r.id, "rejected", reviewNotes[r.id]); }}><Icon name="reject" size={14} /> Reject</Btn>
                       </div>
                     </div>
                   )}
