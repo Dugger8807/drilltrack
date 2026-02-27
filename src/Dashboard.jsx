@@ -2,14 +2,14 @@ import { theme, RIGS, CREWS, formatCurrency } from "./constants.js";
 import { Icon } from "./ui.jsx";
 import MapView from "./MapView.jsx";
 
-export default function Dashboard({ workOrders, dailyReports, dbRigs, dbCrews }) {
+export default function Dashboard({ workOrders, dailyReports, dbRigs, dbCrews, isMobile }) {
   // Use DB rigs/crews if provided, fall back to constants
   const rigsToUse = dbRigs && dbRigs.length > 0 ? dbRigs.map(r => ({ ...r, gps: { lat: r.last_known_lat || 30.69, lng: r.last_known_lng || -88.04 } })) : RIGS;
   const crewsToUse = dbCrews && dbCrews.length > 0 ? dbCrews.map(c => ({ ...c, lead: c.lead ? `${c.lead.first_name} ${c.lead.last_name}` : 'Unassigned', members: 2 })) : CREWS;
-  const activeJobs = workOrders.filter((w) => w.status === "in-progress").length;
+  const activeJobs = workOrders.filter((w) => w.status === "in_progress").length;
   const scheduled = workOrders.filter((w) => w.status === "scheduled").length;
   const pending = workOrders.filter((w) => w.status === "pending").length;
-  const rigsActive = workOrders.filter((w) => w.status === "in-progress" && w.assignedRig).length;
+  const rigsActive = workOrders.filter((w) => w.status === "in_progress" && w.assignedRig).length;
   const totalRevenue = dailyReports.reduce((sum, r) => sum + (r.billing || []).reduce((s, b) => s + (b.total || b.quantity * b.rate || 0), 0), 0);
   const totalEstimated = workOrders.reduce((s, w) => s + (w.estimatedCost || 0), 0);
   const totalFootage = dailyReports.reduce((sum, r) => sum + (r.production || []).reduce((s, b) => s + (b.footage || 0), 0), 0);
@@ -28,7 +28,7 @@ export default function Dashboard({ workOrders, dailyReports, dbRigs, dbCrews })
 
   return (
     <div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(185px, 1fr))", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(auto-fill, minmax(185px, 1fr))", gap: isMobile ? 8 : 14, marginBottom: isMobile ? 16 : 24 }}>
         {stats.map((s) => (
           <div key={s.label} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: "16px 18px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 10, right: 12, opacity: 0.12 }}><Icon name={s.icon} size={32} color={s.color} /></div>
@@ -42,14 +42,14 @@ export default function Dashboard({ workOrders, dailyReports, dbRigs, dbCrews })
         <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: theme.text, textTransform: "uppercase", letterSpacing: "0.04em", display: "flex", alignItems: "center", gap: 8 }}>
           <Icon name="map" size={16} color={theme.accent} /> Fleet & Project Map
         </h3>
-        <MapView workOrders={workOrders} rigs={rigsToUse} />
+        <MapView workOrders={workOrders} rigs={rigsToUse} isMobile={isMobile} />
       </div>
 
       <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, padding: 20, marginBottom: 20 }}>
         <h3 style={{ margin: "0 0 16px", fontSize: 14, fontWeight: 700, color: theme.text, textTransform: "uppercase" }}><Icon name="truck" size={16} /> Rig Fleet</h3>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
           {rigsToUse.map((rig) => {
-            const wo = workOrders.find((w) => w.assignedRig === rig.id && w.status === "in-progress");
+            const wo = workOrders.find((w) => w.assignedRig === rig.id && w.status === "in_progress");
             const sc = wo ? theme.info : rig.status === "maintenance" ? theme.danger : theme.success;
             return (
               <div key={rig.id} style={{ background: theme.surface2, borderRadius: 8, padding: "12px 14px", borderLeft: `3px solid ${sc}` }}>
