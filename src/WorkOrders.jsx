@@ -2,6 +2,8 @@ import { useState } from "react";
 import { theme, inputStyle, selectStyle } from "./constants.js";
 import { Icon, Badge, Priority, Btn, Field } from "./ui.jsx";
 import { downloadWorkOrderPDF } from "./pdfGenerator.js";
+import { WOAttachments } from "./FileUpload.jsx";
+import { supabase } from "./supabaseClient.js";
 
 // ─── Work Order Form (writes to Supabase) ────────────────────────────
 export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
@@ -202,6 +204,18 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
   const [filter, setFilter] = useState("all");
   const [expandedWO, setExpandedWO] = useState(null);
+  const [attachments, setAttachments] = useState({});
+
+  const fetchAttachments = async (woId) => {
+    const { data } = await supabase.from('wo_attachments').select('*').eq('work_order_id', woId).order('created_at', { ascending: false });
+    setAttachments(prev => ({ ...prev, [woId]: data || [] }));
+  };
+
+  const handleExpand = (woId) => {
+    if (expandedWO === woId) { setExpandedWO(null); return; }
+    setExpandedWO(woId);
+    if (!attachments[woId]) fetchAttachments(woId);
+  };
   const filtered = filter === "all" ? workOrders : workOrders.filter(w => w.status === filter);
 
   return (
@@ -221,7 +235,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
           const isOpen = expandedWO === wo.id;
           return (
             <div key={wo.id} style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, overflow: "hidden" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", cursor: "pointer", gap: 12 }} onClick={() => setExpandedWO(isOpen ? null : wo.id)}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", cursor: "pointer", gap: 12 }} onClick={() => handleExpand(wo.id)}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{wo.woNumber}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wo.projectName}</span>
@@ -277,6 +291,20 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
                       </div>
                     </div>
                   )}
+
+                  {/* Attachments */}
+                  <div style={{ marginTop: 14 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: theme.accent, textTransform: "uppercase" }}>
+                      Attachments ({(attachments[wo.id] || []).length})
+                    </span>
+                    <div style={{ marginTop: 8 }}>
+                      <WOAttachments
+                        workOrderId={wo.id}
+                        attachments={attachments[wo.id] || []}
+                        onRefresh={() => fetchAttachments(wo.id)}
+                      />
+                    </div>
+                  </div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 14 }}>
                     {wo.status === "pending" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "approved")}><Icon name="check" size={12} /> Approve</Btn>}

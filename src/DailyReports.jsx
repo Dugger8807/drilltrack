@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { theme, inputStyle, selectStyle } from "./constants.js";
 import { Icon, Badge, Btn, Field } from "./ui.jsx";
 import { downloadDailyReportPDF } from "./pdfGenerator.js";
+import { DRPhotos } from "./FileUpload.jsx";
+import { supabase } from "./supabaseClient.js";
 
 // ─── Daily Report Form (writes to Supabase) ─────────────────────────
 export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
@@ -199,6 +201,18 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
   const [reviewNotes, setReviewNotes] = useState({});
+  const [photos, setPhotos] = useState({});
+
+  const fetchPhotos = async (drId) => {
+    const { data } = await supabase.from('daily_report_photos').select('*').eq('daily_report_id', drId).order('created_at', { ascending: false });
+    setPhotos(prev => ({ ...prev, [drId]: data || [] }));
+  };
+
+  const handleExpand = (drId) => {
+    if (expanded === drId) { setExpanded(null); return; }
+    setExpanded(drId);
+    if (!photos[drId]) fetchPhotos(drId);
+  };
   const filtered = filter === "all" ? reports : reports.filter(r => r.status === filter);
 
   return (
@@ -221,7 +235,7 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
 
           return (
             <div key={r.id} style={{ background: theme.surface, border: `1px solid ${r.status === "submitted" ? theme.accent + "40" : theme.border}`, borderRadius: 10, overflow: "hidden" }}>
-              <div onClick={() => setExpanded(isOpen ? null : r.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", cursor: "pointer", gap: 12 }}>
+              <div onClick={() => handleExpand(r.id)} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 18px", cursor: "pointer", gap: 12 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{r.reportNumber}</span>
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{r.projectName || r.workOrderName}</span>
@@ -285,6 +299,17 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
                       <div style={{ fontSize: 13, color: theme.text, marginTop: 2 }}>{r.reviewNotes}</div>
                     </div>
                   )}
+
+                  <div style={{ marginTop: 12 }}>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: theme.accent, textTransform: "uppercase", display: "block", marginBottom: 8 }}>
+                      Field Photos ({(photos[r.id] || []).length})
+                    </span>
+                    <DRPhotos
+                      dailyReportId={r.id}
+                      photos={photos[r.id] || []}
+                      onRefresh={() => fetchPhotos(r.id)}
+                    />
+                  </div>
 
                   <div style={{ marginTop: 12 }}>
                     <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r)}><Icon name="report" size={12} /> Download PDF</Btn>
