@@ -1,27 +1,8 @@
-// ─── PDF Generation using jsPDF (loaded via CDN) ─────────────────────
+// ─── PDF Generation using jsPDF ──────────────────────────────────────
 // Generates branded PDFs for daily reports and work orders
 
-const PDF_LOADED = { promise: null };
-
-function loadJsPDF() {
-  if (PDF_LOADED.promise) return PDF_LOADED.promise;
-  PDF_LOADED.promise = new Promise((resolve, reject) => {
-    if (window.jspdf) return resolve(window.jspdf);
-    const script = document.createElement('script');
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js';
-    script.onload = () => {
-      // Also load autotable plugin
-      const at = document.createElement('script');
-      at.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.4/jspdf.plugin.autotable.min.js';
-      at.onload = () => resolve(window.jspdf);
-      at.onerror = reject;
-      document.head.appendChild(at);
-    };
-    script.onerror = reject;
-    document.head.appendChild(script);
-  });
-  return PDF_LOADED.promise;
-}
+import { jsPDF } from 'jspdf';
+import 'jspdf-autotable';
 
 // ─── Color palette ───────────────────────────────────────────────────
 const C = {
@@ -139,8 +120,8 @@ function checkPage(doc, y, needed = 30) {
 // DAILY REPORT PDF
 // =====================================================================
 export async function generateDailyReportPDF(report) {
-  const jspdf = await loadJsPDF();
-  const doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const w = doc.internal.pageSize.getWidth();
 
   drawHeader(doc, 'DAILY DRILLER REPORT', report.reportNumber);
@@ -273,8 +254,8 @@ export async function generateDailyReportPDF(report) {
 // WORK ORDER PDF
 // =====================================================================
 export async function generateWorkOrderPDF(wo) {
-  const jspdf = await loadJsPDF();
-  const doc = new jspdf.jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
   const w = doc.internal.pageSize.getWidth();
 
   drawHeader(doc, 'WORK ORDER', wo.woNumber);
