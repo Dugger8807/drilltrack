@@ -21,6 +21,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   ]);
 
   const [billing, setBilling] = useState([]);
+  const [pendingPhotos, setPendingPhotos] = useState([]); // { file, caption, preview }
+  const [submitting, setSubmitting] = useState(false);
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -33,7 +35,6 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
         rig_id: f.rig_id || selectedWO.assignedRig || '',
         crew_id: f.crew_id || selectedWO.assignedCrew || '',
       }));
-      // Load rate schedule as billing options
       if (selectedWO.rateSchedule?.length && billing.length === 0) {
         setBilling(selectedWO.rateSchedule.map(r => ({
           wo_rate_schedule_id: r.id, rate: r.rate, quantity: 0, unitName: r.unitName, unitLabel: r.unitLabel,
@@ -45,11 +46,48 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   const addProd = () => setProduction(p => [...p, { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, description: '' }]);
   const updateProd = (idx, field, val) => setProduction(p => p.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const removeProd = (idx) => setProduction(p => p.filter((_, i) => i !== idx));
-
   const updateBill = (idx, field, val) => setBilling(b => b.map((x, i) => i === idx ? { ...x, [field]: val } : x));
 
-  const handleSubmit = () => {
+  // ── Photo handling ──
+  const addPhoto = (file) => {
+    const preview = URL.createObjectURL(file);
+    setPendingPhotos(p => [...p, { file, caption: '', preview }]);
+  };
+
+  const removePhoto = (idx) => {
+    setPendingPhotos(p => {
+      URL.revokeObjectURL(p[idx].preview);
+      return p.filter((_, i) => i !== idx);
+    });
+  };
+
+  const updatePhotoCaption = (idx, caption) => {
+    setPendingPhotos(p => p.map((x, i) => i === idx ? { ...x, caption } : x));
+  };
+
+  const handleCameraCapture = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.capture = 'environment';
+    input.onchange = (e) => { if (e.target.files?.[0]) addPhoto(e.target.files[0]); };
+    input.click();
+  };
+
+  const handleGalleryPick = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/*';
+    input.multiple = true;
+    input.onchange = (e) => { if (e.target.files) Array.from(e.target.files).forEach(addPhoto); };
+    input.click();
+  };
+
+  // ── Submit with photos ──
+  const handleSubmit = async () => {
     if (!form.work_order_id || !form.report_date) return alert('Please select a work order and date.');
+    setSubmitting(true);
+
     const reportData = {
       ...form,
       rig_id: form.rig_id || null,
@@ -72,22 +110,24 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       rate: Number(b.rate),
       sort_order: i,
     }));
-    onSubmit(reportData, prodData, billData);
+
+    // Create the report first
+    await onSubmit(reportData, prodData, billData, pendingPhotos);
+    setSubmitting(false);
   };
 
-  // Get available borings from selected WO
   const availableBorings = selectedWO?.borings || [];
   const totalFootage = production.reduce((s, p) => s + Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0)), 0);
   const totalBilling = billing.reduce((s, b) => s + (Number(b.quantity) || 0) * (Number(b.rate) || 0), 0);
 
   return (
-    <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: 28 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 24 }}>
+    <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: "20px 16px" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Daily Driller Report</h2>
-        <Btn variant="ghost" onClick={onCancel}><Icon name="x" size={16} /> Close</Btn>
+        <Btn variant="ghost" onClick={onCancel}><Icon name="x" size={16} /></Btn>
       </div>
 
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 16 }}>
+      <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <Field label="Work Order" required half>
           <select style={selectStyle} value={form.work_order_id} onChange={e => update("work_order_id", e.target.value)}>
             <option value="">Select work order...</option>
@@ -121,46 +161,44 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       </div>
 
       {/* Production Entries */}
-      <div style={{ marginTop: 24, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+      <div style={{ marginTop: 20, background: theme.surface2, borderRadius: 10, padding: "14px 12px", border: `1px solid ${theme.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: theme.accent }}>
-            <Icon name="drill" size={15} color={theme.accent} /> Production ({production.length} entries • {totalFootage} ft)
+            <Icon name="drill" size={15} color={theme.accent} /> Production ({production.length} • {totalFootage} ft)
           </h3>
-          <Btn variant="secondary" small onClick={addProd}><Icon name="plus" size={12} /> Add Entry</Btn>
+          <Btn variant="secondary" small onClick={addProd}><Icon name="plus" size={12} /> Add</Btn>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {production.map((p, idx) => (
-            <div key={idx} style={{ background: theme.bg, borderRadius: 8, padding: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ flex: "0 0 120px" }}>
+            <div key={idx} style={{ background: theme.bg, borderRadius: 8, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ flex: "1 1 100px", minWidth: 90 }}>
                 <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Boring</label>
-                <select style={{ ...selectStyle, fontSize: 12 }} value={p.wo_boring_id} onChange={e => updateProd(idx, 'wo_boring_id', e.target.value)}>
+                <select style={{ ...selectStyle, fontSize: 13 }} value={p.wo_boring_id} onChange={e => updateProd(idx, 'wo_boring_id', e.target.value)}>
                   <option value="">Select...</option>
                   {availableBorings.map(b => <option key={b.id} value={b.id}>{b.boringLabel}</option>)}
                 </select>
               </div>
-              <div style={{ flex: "1 1 130px" }}>
+              <div style={{ flex: "1 1 120px" }}>
                 <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Type</label>
-                <select style={{ ...selectStyle, fontSize: 12 }} value={p.boring_type_id} onChange={e => updateProd(idx, 'boring_type_id', e.target.value)}>
+                <select style={{ ...selectStyle, fontSize: 13 }} value={p.boring_type_id} onChange={e => updateProd(idx, 'boring_type_id', e.target.value)}>
                   {boringTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
-              <div style={{ flex: "0 0 80px" }}>
-                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>From (ft)</label>
-                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.start_depth} onChange={e => updateProd(idx, 'start_depth', e.target.value)} />
+              <div style={{ flex: "0 0 70px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>From</label>
+                <input style={{ ...inputStyle, fontSize: 13 }} type="number" value={p.start_depth} onChange={e => updateProd(idx, 'start_depth', e.target.value)} />
               </div>
-              <div style={{ flex: "0 0 80px" }}>
-                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>To (ft)</label>
-                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.end_depth} onChange={e => updateProd(idx, 'end_depth', e.target.value)} />
+              <div style={{ flex: "0 0 70px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>To</label>
+                <input style={{ ...inputStyle, fontSize: 13 }} type="number" value={p.end_depth} onChange={e => updateProd(idx, 'end_depth', e.target.value)} />
               </div>
-              <div style={{ flex: "0 0 60px", textAlign: "center" }}>
-                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Footage</label>
-                <div style={{ fontSize: 13, fontWeight: 700, color: theme.accent }}>{Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0))} ft</div>
+              <div style={{ flex: "0 0 50px", textAlign: "center", paddingTop: 14 }}>
+                <span style={{ fontSize: 14, fontWeight: 700, color: theme.accent }}>{Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0))}′</span>
               </div>
-              <div style={{ flex: "1 1 200px" }}>
-                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Notes</label>
-                <input style={{ ...inputStyle, fontSize: 12 }} value={p.description} onChange={e => updateProd(idx, 'description', e.target.value)} placeholder="Brief note" />
+              <div style={{ flex: "1 1 100%", minWidth: 0 }}>
+                <input style={{ ...inputStyle, fontSize: 13 }} value={p.description} onChange={e => updateProd(idx, 'description', e.target.value)} placeholder="Notes..." />
               </div>
-              {production.length > 1 && <div style={{ paddingTop: 14 }}><Btn variant="ghost" small onClick={() => removeProd(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn></div>}
+              {production.length > 1 && <Btn variant="ghost" small onClick={() => removeProd(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>}
             </div>
           ))}
         </div>
@@ -168,29 +206,61 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 
       {/* Billing */}
       {billing.length > 0 && (
-        <div style={{ marginTop: 20, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
-          <h3 style={{ margin: "0 0 14px", fontSize: 14, fontWeight: 700, color: theme.accent }}>
-            <Icon name="dollar" size={15} color={theme.accent} /> Billing (from WO rate schedule)
+        <div style={{ marginTop: 16, background: theme.surface2, borderRadius: 10, padding: "14px 12px", border: `1px solid ${theme.border}` }}>
+          <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: theme.accent }}>
+            <Icon name="dollar" size={15} color={theme.accent} /> Billing
           </h3>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {billing.map((b, idx) => (
-              <div key={idx} style={{ display: "flex", gap: 12, alignItems: "center", padding: "6px 0", borderBottom: `1px solid ${theme.border}15` }}>
-                <span style={{ flex: 2, fontSize: 13, color: theme.text }}>{b.unitName}</span>
-                <span style={{ fontSize: 12, color: theme.textMuted }}>${b.rate} {b.unitLabel}</span>
-                <input style={{ ...inputStyle, width: 80, fontSize: 12 }} type="number" value={b.quantity} onChange={e => updateBill(idx, 'quantity', e.target.value)} placeholder="Qty" />
-                <span style={{ fontSize: 13, fontWeight: 700, color: theme.accent, minWidth: 80, textAlign: "right" }}>${((Number(b.quantity) || 0) * (Number(b.rate) || 0)).toLocaleString()}</span>
+              <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", padding: "6px 0", borderBottom: `1px solid ${theme.border}15` }}>
+                <span style={{ flex: "1 1 120px", fontSize: 13, color: theme.text }}>{b.unitName}</span>
+                <span style={{ fontSize: 12, color: theme.textMuted, whiteSpace: "nowrap" }}>${b.rate} {b.unitLabel}</span>
+                <input style={{ ...inputStyle, width: 80, flex: "0 0 80px" }} type="number" value={b.quantity} onChange={e => updateBill(idx, 'quantity', e.target.value)} placeholder="Qty" />
+                <span style={{ fontSize: 13, fontWeight: 700, color: theme.accent, minWidth: 70, textAlign: "right" }}>${((Number(b.quantity) || 0) * (Number(b.rate) || 0)).toLocaleString()}</span>
               </div>
             ))}
           </div>
-          <div style={{ textAlign: "right", marginTop: 12, fontSize: 15, fontWeight: 700, color: theme.accent }}>Total: ${totalBilling.toLocaleString()}</div>
+          <div style={{ textAlign: "right", marginTop: 10, fontSize: 15, fontWeight: 700, color: theme.accent }}>Total: ${totalBilling.toLocaleString()}</div>
         </div>
       )}
 
-      <div style={{ marginTop: 16 }}><Field label="Daily Notes"><textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={e => update("notes", e.target.value)} /></Field></div>
+      {/* Field Photos — inline in form */}
+      <div style={{ marginTop: 16, background: theme.surface2, borderRadius: 10, padding: "14px 12px", border: `1px solid ${theme.border}` }}>
+        <h3 style={{ margin: "0 0 10px", fontSize: 14, fontWeight: 700, color: theme.accent }}>
+          <Icon name="camera" size={15} color={theme.accent} /> Field Photos ({pendingPhotos.length})
+        </h3>
 
-      <div style={{ display: "flex", gap: 10, marginTop: 24, justifyContent: "flex-end" }}>
+        {/* Photo previews */}
+        {pendingPhotos.length > 0 && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(100px, 1fr))", gap: 8, marginBottom: 12 }}>
+            {pendingPhotos.map((p, idx) => (
+              <div key={idx} style={{ position: "relative", borderRadius: 8, overflow: "hidden", border: `1px solid ${theme.border}` }}>
+                <img src={p.preview} alt="" style={{ width: "100%", height: 80, objectFit: "cover", display: "block" }} />
+                <input value={p.caption} onChange={e => updatePhotoCaption(idx, e.target.value)} placeholder="Caption" style={{ width: "100%", border: "none", borderTop: `1px solid ${theme.border}`, background: theme.bg, color: theme.text, fontSize: 11, padding: "4px 6px", boxSizing: "border-box", fontFamily: "inherit" }} />
+                <button onClick={() => removePhoto(idx)} style={{ position: "absolute", top: 2, right: 2, width: 22, height: 22, borderRadius: "50%", border: "none", background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 13, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}>×</button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Camera + gallery buttons */}
+        <div style={{ display: "flex", gap: 8 }}>
+          <button onClick={handleCameraCapture} style={{ flex: 1, padding: "14px 10px", borderRadius: 8, border: `2px solid ${theme.accent}`, background: theme.accentDim, color: theme.accent, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Icon name="camera" size={18} color={theme.accent} /> Take Photo
+          </button>
+          <button onClick={handleGalleryPick} style={{ flex: 1, padding: "14px 10px", borderRadius: 8, border: `1px solid ${theme.border}`, background: theme.surface2, color: theme.text, fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+            <Icon name="plus" size={16} color={theme.textMuted} /> Gallery
+          </button>
+        </div>
+      </div>
+
+      <div style={{ marginTop: 12 }}><Field label="Daily Notes"><textarea style={{ ...inputStyle, minHeight: 60, resize: "vertical" }} value={form.notes} onChange={e => update("notes", e.target.value)} /></Field></div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 20, justifyContent: "flex-end" }}>
         <Btn variant="secondary" onClick={onCancel}>Cancel</Btn>
-        <Btn onClick={handleSubmit}><Icon name="check" size={14} /> Submit Report</Btn>
+        <Btn onClick={handleSubmit} disabled={submitting} style={{ flex: 1, maxWidth: 220 }}>
+          <Icon name="check" size={14} /> {submitting ? "Submitting..." : "Submit Report"}
+        </Btn>
       </div>
     </div>
   );

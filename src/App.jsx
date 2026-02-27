@@ -2,6 +2,7 @@ import { useState } from "react";
 import { theme } from "./constants.js";
 import { Icon, Btn } from "./ui.jsx";
 import { useIsMobile } from "./useMediaQuery.js";
+import { supabase } from "./supabaseClient.js";
 import { useOrgData, useWorkOrders, useDailyReports, useProjects } from "./hooks.js";
 import Dashboard from "./Dashboard.jsx";
 import { WorkOrderForm, WorkOrdersList } from "./WorkOrders.jsx";
@@ -112,10 +113,32 @@ export default function App() {
     if (result) setShowWOForm(false);
   };
 
-  const handleCreateDR = async (reportData, production, billing) => {
+  const handleCreateDR = async (reportData, production, billing, pendingPhotos) => {
     reportData.org_id = ORG_ID;
     const result = await createReport(reportData, production, billing);
-    if (result) setShowDRForm(false);
+    if (result) {
+      // Upload any pending photos
+      if (pendingPhotos?.length && result.id) {
+        for (const photo of pendingPhotos) {
+          const path = `${result.id}/${Date.now()}-${photo.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const { data: uploadData } = await supabase.storage.from('dr-photos').upload(path, photo.file, { upsert: true });
+          if (uploadData) {
+            const { data: urlData } = supabase.storage.from('dr-photos').getPublicUrl(path);
+            if (urlData?.publicUrl) {
+              await supabase.from('daily_report_photos').insert({
+                daily_report_id: result.id,
+                file_name: photo.file.name,
+                file_url: urlData.publicUrl,
+                file_size: photo.file.size,
+                caption: photo.caption || '',
+                taken_at: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
+      setShowDRForm(false);
+    }
   };
 
   const allNav = isMobile ? navItems : [...navItems.slice(0, 2), ...desktopOnlyNav, ...navItems.slice(2)];
