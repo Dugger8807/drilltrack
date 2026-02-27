@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { theme, inputStyle, selectStyle } from "./constants.js";
 import { Icon, Badge, Priority, Btn, Field } from "./ui.jsx";
+import { downloadWorkOrderPDF } from "./pdfGenerator.js";
 
 // ─── Work Order Form (writes to Supabase) ────────────────────────────
 export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
@@ -283,6 +284,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit }) {
                     {wo.status === "approved" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "scheduled")}><Icon name="calendar" size={12} /> Mark Scheduled</Btn>}
                     {wo.status === "scheduled" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="drill" size={12} /> Start Work</Btn>}
                     {wo.status === "in_progress" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "completed")}><Icon name="check" size={12} /> Complete</Btn>}
+                    <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo)}><Icon name="report" size={12} /> PDF</Btn>
                   </div>
                 </div>
               )}

@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { theme, inputStyle, selectStyle } from "./constants.js";
 import { Icon, Badge, Btn, Field } from "./ui.jsx";
+import { downloadDailyReportPDF } from "./pdfGenerator.js";
 
 // ─── Daily Report Form (writes to Supabase) ─────────────────────────
 export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
@@ -284,6 +285,10 @@ export function DailyReportsList({ reports, workOrders, onStatusChange }) {
                       <div style={{ fontSize: 13, color: theme.text, marginTop: 2 }}>{r.reviewNotes}</div>
                     </div>
                   )}
+
+                  <div style={{ marginTop: 12 }}>
+                    <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r)}><Icon name="report" size={12} /> Download PDF</Btn>
+                  </div>}
 
                   {r.status === "submitted" && (
                     <div style={{ marginTop: 16, padding: 14, background: "rgba(244,165,58,0.06)", border: `1px solid ${theme.accent}30`, borderRadius: 8 }}>
