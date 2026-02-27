@@ -441,37 +441,227 @@ function ProjectsSection({ projects, clients, onRefresh }) {
 // ─── Rate Templates Section ──────────────────────────────────────────
 function RateTemplatesSection({ templates, billingUnits, onRefresh }) {
   const [expanded, setExpanded] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const [editingHeader, setEditingHeader] = useState(null);
+  const [editingItems, setEditingItems] = useState(null); // template id being edited
+  const [itemDraft, setItemDraft] = useState([]); // working copy of line items
+  const [newName, setNewName] = useState('');
+  const [newDesc, setNewDesc] = useState('');
+
+  // ── Create new template ──
+  const createTemplate = async () => {
+    if (!newName) return;
+    const { data, error } = await supabase.from('rate_templates').insert({ name: newName, description: newDesc, org_id: ORG_ID }).select().single();
+    if (error) { console.error(error); return; }
+    setAdding(false); setNewName(''); setNewDesc('');
+    onRefresh();
+    // Auto-open for editing items
+    setEditingItems(data.id);
+    setItemDraft([]);
+    setExpanded(data.id);
+  };
+
+  // ── Update template header ──
+  const updateHeader = async (id, name, description) => {
+    await supabase.from('rate_templates').update({ name, description }).eq('id', id);
+    setEditingHeader(null);
+    onRefresh();
+  };
+
+  // ── Start editing items ──
+  const startEditItems = (template) => {
+    setEditingItems(template.id);
+    setItemDraft((template.items || []).map(item => ({
+      id: item.id,
+      billing_unit_type_id: item.billing_unit_type_id,
+      rate: item.rate,
+      unit_label: item.unit_label || '',
+      name: item.billing_unit?.name || '',
+    })));
+    setExpanded(template.id);
+  };
+
+  // ── Item draft operations ──
+  const addItemRow = () => setItemDraft(d => [...d, { billing_unit_type_id: '', rate: '', unit_label: '', name: '' }]);
+  const updateItem = (idx, field, val) => setItemDraft(d => d.map((x, i) => i === idx ? { ...x, [field]: val } : x));
+  const removeItem = (idx) => setItemDraft(d => d.filter((_, i) => i !== idx));
+
+  // ── Save all items (delete old, insert new) ──
+  const saveItems = async (templateId) => {
+    // Delete existing items
+    await supabase.from('rate_template_items').delete().eq('template_id', templateId);
+    // Insert new
+    const rows = itemDraft.filter(i => i.billing_unit_type_id && i.rate).map((item, idx) => ({
+      template_id: templateId,
+      billing_unit_type_id: item.billing_unit_type_id,
+      rate: Number(item.rate),
+      unit_label: item.unit_label,
+      sort_order: idx,
+    }));
+    if (rows.length) await supabase.from('rate_template_items').insert(rows);
+    setEditingItems(null);
+    setItemDraft([]);
+    onRefresh();
+  };
+
+  // ── Delete template ──
+  const deleteTemplate = async (id) => {
+    if (!confirm('Delete this rate template and all its items?')) return;
+    await supabase.from('rate_template_items').delete().eq('template_id', id);
+    await supabase.from('rate_templates').delete().eq('id', id);
+    setExpanded(null); setEditingItems(null);
+    onRefresh();
+  };
+
+  // ── Duplicate template ──
+  const duplicateTemplate = async (template) => {
+    const { data, error } = await supabase.from('rate_templates').insert({
+      name: `${template.name} (Copy)`, description: template.description, org_id: ORG_ID,
+    }).select().single();
+    if (error || !data) return;
+    if (template.items?.length) {
+      const rows = template.items.map((item, idx) => ({
+        template_id: data.id,
+        billing_unit_type_id: item.billing_unit_type_id,
+        rate: item.rate,
+        unit_label: item.unit_label,
+        sort_order: idx,
+      }));
+      await supabase.from('rate_template_items').insert(rows);
+    }
+    onRefresh();
+  };
 
   return (
     <div>
-      <div style={{ marginBottom: 16 }}><span style={{ fontSize: 13, color: theme.textMuted }}>{templates.length} rate templates</span></div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-        {templates.map(t => (
-          <div key={t.id} style={{ background: theme.surface2, borderRadius: 8, overflow: "hidden" }}>
-            <div onClick={() => setExpanded(expanded === t.id ? null : t.id)} style={{ padding: "10px 14px", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <div>
-                <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{t.name}</span>
-                {t.description && <span style={{ fontSize: 12, color: theme.textMuted, marginLeft: 12 }}>{t.description}</span>}
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 11, color: theme.info }}>{t.items?.length || 0} items</span>
-                <span style={{ transform: expanded === t.id ? "rotate(180deg)" : "none", transition: "0.2s" }}><Icon name="chevDown" size={14} color={theme.textMuted} /></span>
-              </div>
-            </div>
-            {expanded === t.id && t.items && (
-              <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${theme.border}` }}>
-                {t.items.map((item, i) => (
-                  <div key={i} style={{ display: "flex", gap: 16, padding: "6px 0", fontSize: 12, borderBottom: `1px solid ${theme.border}10` }}>
-                    <span style={{ flex: 2, color: theme.text }}>{item.billing_unit?.name || '—'}</span>
-                    <span style={{ color: theme.accent, fontWeight: 600 }}>${item.rate}</span>
-                    <span style={{ color: theme.textMuted }}>{item.unit_label}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        ))}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <span style={{ fontSize: 13, color: theme.textMuted }}>{templates.length} rate templates</span>
+        <Btn small onClick={() => setAdding(true)}><Icon name="plus" size={12} /> New Template</Btn>
       </div>
+
+      {/* New template form */}
+      {adding && (
+        <div style={{ background: theme.bg, borderRadius: 8, padding: 16, border: `1px solid ${theme.accent}40`, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <div style={{ flex: "1 1 200px" }}>
+              <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase", display: "block", marginBottom: 3 }}>Template Name</label>
+              <input style={{ ...inputStyle, fontSize: 12 }} value={newName} onChange={e => setNewName(e.target.value)} placeholder="Standard Rates 2026" />
+            </div>
+            <div style={{ flex: "1 1 300px" }}>
+              <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase", display: "block", marginBottom: 3 }}>Description</label>
+              <input style={{ ...inputStyle, fontSize: 12 }} value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Default rates for new projects" />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+            <Btn variant="secondary" small onClick={() => { setAdding(false); setNewName(''); setNewDesc(''); }}>Cancel</Btn>
+            <Btn small onClick={createTemplate}><Icon name="check" size={12} /> Create & Add Items</Btn>
+          </div>
+        </div>
+      )}
+
+      {/* Template list */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {templates.map(t => {
+          const isOpen = expanded === t.id;
+          const isEditingThis = editingItems === t.id;
+          const isEditingHead = editingHeader === t.id;
+
+          return (
+            <div key={t.id} style={{ background: theme.surface2, borderRadius: 8, overflow: "hidden", border: isEditingThis ? `1px solid ${theme.accent}60` : 'none' }}>
+              {/* Header */}
+              <div style={{ padding: "10px 14px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                {isEditingHead ? (
+                  <HeaderEditor
+                    name={t.name} description={t.description}
+                    onSave={(name, desc) => updateHeader(t.id, name, desc)}
+                    onCancel={() => setEditingHeader(null)}
+                  />
+                ) : (
+                  <>
+                    <div onClick={() => setExpanded(isOpen ? null : t.id)} style={{ cursor: "pointer", flex: 1 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{t.name}</span>
+                      {t.description && <span style={{ fontSize: 12, color: theme.textMuted, marginLeft: 12 }}>{t.description}</span>}
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <span style={{ fontSize: 11, color: theme.info }}>{t.items?.length || 0} items</span>
+                      <Btn variant="ghost" small onClick={() => setEditingHeader(t.id)} title="Edit name"><Icon name="clipboard" size={12} /></Btn>
+                      <Btn variant="ghost" small onClick={() => duplicateTemplate(t)} title="Duplicate"><Icon name="plus" size={12} color={theme.info} /></Btn>
+                      <Btn variant="ghost" small onClick={() => deleteTemplate(t.id)} title="Delete"><Icon name="x" size={12} color={theme.danger} /></Btn>
+                      <span onClick={() => setExpanded(isOpen ? null : t.id)} style={{ cursor: "pointer", transform: isOpen ? "rotate(180deg)" : "none", transition: "0.2s" }}><Icon name="chevDown" size={14} color={theme.textMuted} /></span>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              {/* Expanded content */}
+              {isOpen && (
+                <div style={{ padding: "0 14px 14px", borderTop: `1px solid ${theme.border}` }}>
+                  {isEditingThis ? (
+                    /* ── Editing line items ── */
+                    <div style={{ paddingTop: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, textTransform: "uppercase" }}>Edit Rate Items</span>
+                        <Btn variant="secondary" small onClick={addItemRow}><Icon name="plus" size={12} /> Add Line</Btn>
+                      </div>
+                      {itemDraft.length === 0 && <div style={{ padding: 16, textAlign: "center", color: theme.textMuted, fontSize: 12 }}>No items yet. Click "Add Line" to start building this template.</div>}
+                      <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                        {itemDraft.map((item, idx) => (
+                          <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", background: theme.bg, padding: "8px 10px", borderRadius: 6 }}>
+                            <select style={{ ...selectStyle, flex: 2, fontSize: 12 }} value={item.billing_unit_type_id} onChange={e => {
+                              const bu = billingUnits.find(b => b.id === e.target.value);
+                              updateItem(idx, 'billing_unit_type_id', e.target.value);
+                              if (bu) { updateItem(idx, 'name', bu.name); updateItem(idx, 'rate', bu.default_rate || ''); updateItem(idx, 'unit_label', `per ${bu.default_unit}`); }
+                            }}>
+                              <option value="">Select billing unit...</option>
+                              {billingUnits.filter(bu => bu.is_active !== false).map(bu => <option key={bu.id} value={bu.id}>{bu.name}</option>)}
+                            </select>
+                            <input style={{ ...inputStyle, width: 90, fontSize: 12 }} type="number" value={item.rate} onChange={e => updateItem(idx, 'rate', e.target.value)} placeholder="Rate $" />
+                            <input style={{ ...inputStyle, width: 100, fontSize: 12 }} value={item.unit_label} onChange={e => updateItem(idx, 'unit_label', e.target.value)} placeholder="per hour" />
+                            <Btn variant="ghost" small onClick={() => removeItem(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>
+                          </div>
+                        ))}
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12, justifyContent: "flex-end" }}>
+                        <Btn variant="secondary" small onClick={() => { setEditingItems(null); setItemDraft([]); }}>Cancel</Btn>
+                        <Btn small onClick={() => saveItems(t.id)}><Icon name="check" size={12} /> Save Items</Btn>
+                      </div>
+                    </div>
+                  ) : (
+                    /* ── Read-only view ── */
+                    <div style={{ paddingTop: 10 }}>
+                      {(!t.items || t.items.length === 0) && <div style={{ padding: 12, textAlign: "center", color: theme.textMuted, fontSize: 12 }}>No items. Click Edit to add rate items.</div>}
+                      {t.items?.map((item, i) => (
+                        <div key={i} style={{ display: "flex", gap: 16, padding: "6px 0", fontSize: 12, borderBottom: `1px solid ${theme.border}10` }}>
+                          <span style={{ flex: 2, color: theme.text }}>{item.billing_unit?.name || '—'}</span>
+                          <span style={{ color: theme.accent, fontWeight: 600 }}>${item.rate}</span>
+                          <span style={{ color: theme.textMuted }}>{item.unit_label}</span>
+                        </div>
+                      ))}
+                      <div style={{ marginTop: 10 }}>
+                        <Btn variant="secondary" small onClick={() => startEditItems(t)}><Icon name="clipboard" size={12} /> Edit Items</Btn>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// Small helper for editing template name/description inline
+function HeaderEditor({ name, description, onSave, onCancel }) {
+  const [n, setN] = useState(name);
+  const [d, setD] = useState(description || '');
+  return (
+    <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1, flexWrap: "wrap" }}>
+      <input style={{ ...inputStyle, fontSize: 12, flex: "1 1 180px" }} value={n} onChange={e => setN(e.target.value)} placeholder="Template name" />
+      <input style={{ ...inputStyle, fontSize: 12, flex: "1 1 250px" }} value={d} onChange={e => setD(e.target.value)} placeholder="Description" />
+      <Btn small onClick={() => onSave(n, d)}><Icon name="check" size={12} /></Btn>
+      <Btn variant="ghost" small onClick={onCancel}><Icon name="x" size={12} /></Btn>
     </div>
   );
 }
