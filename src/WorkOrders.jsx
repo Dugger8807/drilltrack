@@ -27,12 +27,31 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     scheduled_start: '', scheduled_end: '',
   });
 
-  const [borings, setBorings] = useState(editOrder?.boringsRaw || [
-    { boring_id_label: 'B-1', boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned' }
-  ]);
+  const [borings, setBorings] = useState(() => {
+    if (editOrder?.borings?.length) {
+      return editOrder.borings.map(b => ({
+        boring_id_label: b.boring_id_label || '',
+        boring_type_id: b.boring_type_id || boringTypes[0]?.id || '',
+        planned_depth: b.planned_depth || '',
+        status: b.status || 'planned',
+      }));
+    }
+    return [{ boring_id_label: 'B-1', boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned' }];
+  });
 
   const [selectedTemplate, setSelectedTemplate] = useState('');
-  const [rateSchedule, setRateSchedule] = useState(editOrder?.rateScheduleRaw || []);
+  const [rateSchedule, setRateSchedule] = useState(() => {
+    if (editOrder?.rateSchedule?.length) {
+      return editOrder.rateSchedule.map(r => ({
+        billing_unit_type_id: r.billing_unit_type_id || '',
+        rate: r.rate || '',
+        unit_label: r.unit_label || '',
+        estimated_quantity: r.estimated_quantity || '',
+        name: r.billing_unit?.name || '',
+      }));
+    }
+    return [];
+  });
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -314,6 +333,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile })
                     {wo.status === "scheduled" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="drill" size={12} /> Start Work</Btn>}
                     {wo.status === "in_progress" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "completed")}><Icon name="check" size={12} /> Complete</Btn>}
                     <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo)}><Icon name="report" size={12} /> PDF</Btn>
+                    <Btn variant="secondary" small onClick={() => onEdit(wo)}><Icon name="clipboard" size={12} /> Edit</Btn>
                   </div>
                 </div>
               )}

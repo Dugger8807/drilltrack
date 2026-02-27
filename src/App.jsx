@@ -90,12 +90,14 @@ export default function App() {
   const [page, setPage] = useState("dashboard");
   const [showWOForm, setShowWOForm] = useState(false);
   const [showDRForm, setShowDRForm] = useState(false);
+  const [editingWO, setEditingWO] = useState(null); // raw DB work order for editing
+  const [editingDR, setEditingDR] = useState(null); // raw DB daily report for editing
   const isMobile = useIsMobile();
 
   const orgData = useOrgData();
   const { projects, loading: projLoading } = useProjects();
-  const { workOrders: dbWorkOrders, loading: woLoading, createWorkOrder, updateWOStatus } = useWorkOrders();
-  const { reports: dbReports, loading: drLoading, createReport, updateReportStatus } = useDailyReports();
+  const { workOrders: dbWorkOrders, loading: woLoading, createWorkOrder, updateWorkOrder, updateWOStatus } = useWorkOrders();
+  const { reports: dbReports, loading: drLoading, createReport, updateReport, updateReportStatus } = useDailyReports();
 
   const workOrders = adaptWorkOrders(dbWorkOrders);
   const dailyReports = adaptDailyReports(dbReports);
@@ -105,12 +107,28 @@ export default function App() {
   const isLoading = orgData.loading || projLoading || woLoading || drLoading;
   if (isLoading) return <LoadingScreen />;
 
-  const nav = (id) => { setPage(id); setShowWOForm(false); setShowDRForm(false); };
+  const nav = (id) => { setPage(id); setShowWOForm(false); setShowDRForm(false); setEditingWO(null); setEditingDR(null); };
 
   const handleCreateWO = async (woData, borings, rateSchedule) => {
     woData.org_id = ORG_ID; woData.status = 'pending';
     const result = await createWorkOrder(woData, borings, rateSchedule);
-    if (result) setShowWOForm(false);
+    if (result) { setShowWOForm(false); setEditingWO(null); }
+  };
+
+  const handleEditWO = async (woData, borings, rateSchedule) => {
+    const result = await updateWorkOrder(editingWO.id, woData, borings, rateSchedule);
+    if (result) { setShowWOForm(false); setEditingWO(null); }
+  };
+
+  const startEditWO = (adaptedWO) => {
+    // Find raw DB work order to pass to form
+    const raw = dbWorkOrders.find(w => w.id === adaptedWO.id);
+    if (raw) {
+      setEditingWO(raw);
+      setShowWOForm(true);
+      setShowDRForm(false);
+      setPage("workorders");
+    }
   };
 
   const handleCreateDR = async (reportData, production, billing, pendingPhotos) => {
@@ -175,14 +193,14 @@ export default function App() {
           <h1 style={{ margin: "0 0 12px", fontSize: 18, fontWeight: 800, color: theme.text }}>{pageLabel}</h1>
 
           {showWOForm && page === "workorders" && (
-            <WorkOrderForm onSubmit={handleCreateWO} onCancel={() => setShowWOForm(false)} orgData={{ ...orgData, projects }} />
+            <WorkOrderForm onSubmit={editingWO ? handleEditWO : handleCreateWO} onCancel={() => { setShowWOForm(false); setEditingWO(null); }} editOrder={editingWO} orgData={{ ...orgData, projects }} />
           )}
           {showDRForm && page === "reports" && (
             <DailyReportForm onSubmit={handleCreateDR} onCancel={() => setShowDRForm(false)} orgData={orgData} workOrders={workOrders} />
           )}
 
           {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} isMobile />}
-          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={() => {}} isMobile />}
+          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile />}
           {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} isMobile onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
           {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} isMobile />}
           {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
@@ -242,11 +260,11 @@ export default function App() {
           </h1>
         </div>
 
-        {showWOForm && page === "workorders" && <div style={{ marginBottom: 24 }}><WorkOrderForm onSubmit={handleCreateWO} onCancel={() => setShowWOForm(false)} orgData={{ ...orgData, projects }} /></div>}
+        {showWOForm && page === "workorders" && <div style={{ marginBottom: 24 }}><WorkOrderForm onSubmit={editingWO ? handleEditWO : handleCreateWO} onCancel={() => { setShowWOForm(false); setEditingWO(null); }} editOrder={editingWO} orgData={{ ...orgData, projects }} /></div>}
         {showDRForm && page === "reports" && <div style={{ marginBottom: 24 }}><DailyReportForm onSubmit={handleCreateDR} onCancel={() => setShowDRForm(false)} orgData={orgData} workOrders={workOrders} /></div>}
 
         {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} />}
-        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={() => {}} />}
+        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} />}
         {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
         {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} />}
         {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}

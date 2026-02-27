@@ -246,6 +246,121 @@ export default function GanttScheduler({ workOrders, onAssign, orgData, isMobile
           ))}
         </div>
       )}
+
+      {/* Gantt Timeline */}
+      {!isMobile && scheduled.length > 0 && <GanttTimeline scheduled={scheduled} crews={crews} rigs={rigs} />}
+    </div>
+  );
+}
+
+// ─── Gantt Timeline Component ────────────────────────────────────────
+function GanttTimeline({ scheduled, crews, rigs }) {
+  const DAY_W = 36;
+  const ROW_H = 44;
+  const LABEL_W = 160;
+
+  // Calculate date range
+  const starts = scheduled.filter(w => w.startDate).map(w => new Date(w.startDate));
+  const ends = scheduled.filter(w => w.endDate).map(w => new Date(w.endDate));
+  if (!starts.length) return null;
+
+  const rangeStart = new Date(Math.min(...starts));
+  const rangeEnd = new Date(Math.max(...ends));
+  rangeStart.setDate(rangeStart.getDate() - 2);
+  rangeEnd.setDate(rangeEnd.getDate() + 5);
+
+  const totalDays = Math.ceil((rangeEnd - rangeStart) / 86400000) + 1;
+  const dates = Array.from({ length: totalDays }, (_, i) => {
+    const d = new Date(rangeStart);
+    d.setDate(d.getDate() + i);
+    return d;
+  });
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const todayIdx = Math.round((today - rangeStart) / 86400000);
+
+  // Group by crew
+  const crewRows = crews.map(crew => ({
+    crew,
+    wos: scheduled.filter(w => w.assignedCrew === crew.id),
+  })).filter(r => r.wos.length > 0);
+
+  const getBar = (wo) => {
+    const s = Math.round((new Date(wo.startDate) - rangeStart) / 86400000);
+    const e = Math.round((new Date(wo.endDate) - rangeStart) / 86400000);
+    return { left: s * DAY_W, width: Math.max((e - s + 1) * DAY_W - 2, DAY_W) };
+  };
+
+  return (
+    <div style={{ marginTop: 16, background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 10, overflow: "hidden" }}>
+      <div style={{ padding: "12px 16px", borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", gap: 8 }}>
+        <Icon name="calendar" size={15} color={theme.accent} />
+        <span style={{ fontSize: 13, fontWeight: 700, color: theme.text, textTransform: "uppercase" }}>Timeline</span>
+      </div>
+      <div style={{ overflowX: "auto", overflowY: "auto", maxHeight: 400 }}>
+        <div style={{ display: "flex", minWidth: totalDays * DAY_W + LABEL_W }}>
+          {/* Labels */}
+          <div style={{ width: LABEL_W, flexShrink: 0, borderRight: `1px solid ${theme.border}`, position: "sticky", left: 0, zIndex: 10, background: theme.surface }}>
+            <div style={{ height: 40, borderBottom: `1px solid ${theme.border}`, display: "flex", alignItems: "center", padding: "0 12px" }}>
+              <span style={{ fontSize: 10, fontWeight: 700, color: theme.textMuted, textTransform: "uppercase" }}>Crew</span>
+            </div>
+            {crewRows.map(({ crew }) => (
+              <div key={crew.id} style={{ height: ROW_H, borderBottom: `1px solid ${theme.border}20`, display: "flex", alignItems: "center", padding: "0 12px", gap: 6 }}>
+                <Icon name="users" size={13} color={theme.textMuted} />
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: theme.text }}>{crew.name}</div>
+                  <div style={{ fontSize: 9, color: theme.textMuted }}>{crew.lead ? `${crew.lead.first_name} ${crew.lead.last_name}` : ''}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Timeline area */}
+          <div style={{ flex: 1, minWidth: totalDays * DAY_W }}>
+            {/* Date header */}
+            <div style={{ height: 40, borderBottom: `1px solid ${theme.border}`, display: "flex" }}>
+              {dates.map((d, i) => {
+                const isToday = d.toDateString() === today.toDateString();
+                const isWknd = d.getDay() === 0 || d.getDay() === 6;
+                const isFirst = d.getDate() === 1;
+                return (
+                  <div key={i} style={{ width: DAY_W, flexShrink: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", borderRight: `1px solid ${theme.border}10`, background: isToday ? "rgba(244,165,58,0.1)" : isWknd ? "rgba(0,0,0,0.12)" : "transparent" }}>
+                    {isFirst && <span style={{ fontSize: 7, color: theme.accent, fontWeight: 700, textTransform: "uppercase" }}>{d.toLocaleDateString("en-US", { month: "short" })}</span>}
+                    <span style={{ fontSize: 10, color: isToday ? theme.accent : theme.text, fontWeight: isToday ? 700 : 400 }}>{d.getDate()}</span>
+                    <span style={{ fontSize: 8, color: isToday ? theme.accent : theme.textMuted }}>{d.toLocaleDateString("en-US", { weekday: "narrow" })}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Crew rows */}
+            {crewRows.map(({ crew, wos }) => (
+              <div key={crew.id} style={{ height: ROW_H, borderBottom: `1px solid ${theme.border}20`, position: "relative" }}>
+                {/* Weekend shading */}
+                {dates.map((d, i) => {
+                  const isWknd = d.getDay() === 0 || d.getDay() === 6;
+                  return isWknd ? <div key={i} style={{ position: "absolute", left: i * DAY_W, width: DAY_W, height: "100%", background: "rgba(0,0,0,0.08)", pointerEvents: "none" }} /> : null;
+                })}
+                {/* Today line */}
+                {todayIdx >= 0 && todayIdx < totalDays && <div style={{ position: "absolute", left: todayIdx * DAY_W + DAY_W / 2, width: 2, height: "100%", background: theme.accent, opacity: 0.5, zIndex: 2, pointerEvents: "none" }} />}
+                {/* WO bars */}
+                {wos.filter(w => w.startDate).map(wo => {
+                  const bar = getBar(wo);
+                  const sc = STATUS_COLORS[wo.status] || STATUS_COLORS.scheduled;
+                  const rig = rigs.find(r => r.id === wo.assignedRig);
+                  return (
+                    <div key={wo.id} title={`${wo.woNumber} — ${wo.projectName}\n${wo.startDate} → ${wo.endDate}`} style={{ position: "absolute", top: 6, left: bar.left, width: bar.width, height: ROW_H - 12, background: `linear-gradient(135deg, ${sc.bg}, ${sc.border}30)`, border: `1px solid ${sc.border}60`, borderRadius: 6, display: "flex", alignItems: "center", padding: "0 6px", cursor: "default", zIndex: 3, overflow: "hidden", gap: 4 }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: sc.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wo.projectName}</span>
+                      {rig && bar.width > 150 && <span style={{ fontSize: 9, color: sc.text, opacity: 0.7 }}>({rig.name})</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

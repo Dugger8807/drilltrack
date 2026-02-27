@@ -140,9 +140,25 @@ export function useWorkOrders() {
     return data;
   };
 
-  const updateWorkOrder = async (id, updates) => {
+  const updateWorkOrder = async (id, updates, borings, rateSchedule) => {
     const { error } = await supabase.from('work_orders').update(updates).eq('id', id);
     if (error) { console.error('Error updating WO:', error); return false; }
+    // Replace borings if provided
+    if (borings) {
+      await supabase.from('wo_borings').delete().eq('work_order_id', id);
+      if (borings.length) {
+        const rows = borings.map(b => ({ ...b, work_order_id: id }));
+        await supabase.from('wo_borings').insert(rows);
+      }
+    }
+    // Replace rate schedule if provided
+    if (rateSchedule) {
+      await supabase.from('wo_rate_schedule').delete().eq('work_order_id', id);
+      if (rateSchedule.length) {
+        const rows = rateSchedule.map(r => ({ ...r, work_order_id: id }));
+        await supabase.from('wo_rate_schedule').insert(rows);
+      }
+    }
     await refresh();
     return true;
   };
@@ -226,5 +242,28 @@ export function useDailyReports() {
     return true;
   };
 
-  return { reports, loading, refresh, createReport, updateReportStatus };
+  const updateReport = async (id, reportData, productionEntries, billingEntries) => {
+    const { error } = await supabase.from('daily_reports').update(reportData).eq('id', id);
+    if (error) { console.error('Error updating report:', error); return false; }
+    // Replace production entries
+    if (productionEntries) {
+      await supabase.from('daily_report_production').delete().eq('daily_report_id', id);
+      if (productionEntries.length) {
+        const rows = productionEntries.map(p => ({ ...p, daily_report_id: id }));
+        await supabase.from('daily_report_production').insert(rows);
+      }
+    }
+    // Replace billing entries
+    if (billingEntries) {
+      await supabase.from('daily_report_billing').delete().eq('daily_report_id', id);
+      if (billingEntries.length) {
+        const rows = billingEntries.map(b => ({ ...b, daily_report_id: id }));
+        await supabase.from('daily_report_billing').insert(rows);
+      }
+    }
+    await refresh();
+    return true;
+  };
+
+  return { reports, loading, refresh, createReport, updateReport, updateReportStatus };
 }
