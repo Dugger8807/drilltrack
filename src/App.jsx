@@ -2,6 +2,7 @@ import { useState } from "react";
 import { theme } from "./constants.js";
 import { Icon, Btn } from "./ui.jsx";
 import { useIsMobile } from "./useMediaQuery.js";
+import { useAuth } from "./AuthProvider.jsx";
 import { supabase } from "./supabaseClient.js";
 import { useOrgData, useWorkOrders, useDailyReports, useProjects } from "./hooks.js";
 import Dashboard from "./Dashboard.jsx";
@@ -10,8 +11,6 @@ import GanttScheduler from "./GanttScheduler.jsx";
 import { DailyReportForm, DailyReportsList } from "./DailyReports.jsx";
 import BillingTracker from "./BillingTracker.jsx";
 import AdminConfig from "./AdminConfig.jsx";
-
-const ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001';
 
 const navItems = [
   { id: "dashboard", label: "Home", icon: "home" },
@@ -87,12 +86,19 @@ function LoadingScreen() {
 }
 
 export default function App() {
+  const auth = useAuth();
   const [page, setPage] = useState("dashboard");
   const [showWOForm, setShowWOForm] = useState(false);
   const [showDRForm, setShowDRForm] = useState(false);
-  const [editingWO, setEditingWO] = useState(null); // raw DB work order for editing
-  const [editingDR, setEditingDR] = useState(null); // raw DB daily report for editing
+  const [editingWO, setEditingWO] = useState(null);
+  const [editingDR, setEditingDR] = useState(null);
   const isMobile = useIsMobile();
+
+  const ORG_ID = auth?.orgId || 'a1b2c3d4-0000-0000-0000-000000000001';
+
+  // Role-based nav filtering
+  const canManage = auth?.isAdmin || auth?.isManager; // can approve, edit, see billing/admin
+  const canCreate = auth?.isAdmin || auth?.isManager || auth?.isDriller; // can create WOs and DRs
 
   const orgData = useOrgData();
   const { projects, loading: projLoading } = useProjects();
@@ -159,7 +165,17 @@ export default function App() {
     }
   };
 
-  const allNav = isMobile ? navItems : [...navItems.slice(0, 2), ...desktopOnlyNav, ...navItems.slice(2)];
+  // Filter nav based on role
+  const mobileNav = navItems.filter(item => {
+    if (item.id === 'admin' && !canManage) return false;
+    return true;
+  });
+
+  const allNav = isMobile ? mobileNav : [...navItems.slice(0, 2), ...desktopOnlyNav, ...navItems.slice(2)].filter(item => {
+    if (item.id === 'admin' && !canManage) return false;
+    if (item.id === 'billing' && !canManage) return false;
+    return true;
+  });
   const pageLabel = [...navItems, ...desktopOnlyNav].find(n => n.id === page)?.label || '';
 
   // ─── MOBILE LAYOUT ──────────────────────────────────────────────────
@@ -167,24 +183,28 @@ export default function App() {
     return (
       <div style={{ minHeight: "100vh", background: theme.bg, color: theme.text, fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif", paddingBottom: 72 }}>
         {/* Mobile top bar */}
-        <div style={{ background: theme.surface, borderBottom: `1px solid ${theme.border}`, padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 50, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ background: theme.surface, borderBottom: `1px solid ${theme.border}`, padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 50, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
             <div style={{ width: 28, height: 28, borderRadius: 7, background: `linear-gradient(135deg, ${theme.accent}, #e08520)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
               <Icon name="drill" size={15} color="#0f1117" />
             </div>
             <span style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>DRILLTRACK</span>
           </div>
-          <div style={{ display: "flex", gap: 6 }}>
-            {page === "workorders" && !showWOForm && (
+          <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+            {canCreate && page === "workorders" && !showWOForm && (
               <button onClick={() => { setShowWOForm(true); setShowDRForm(false); }} style={{ background: theme.accent, border: "none", borderRadius: 8, padding: "8px 12px", color: "#0f1117", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
                 <Icon name="plus" size={13} color="#0f1117" /> WO
               </button>
             )}
-            {page === "reports" && !showDRForm && (
+            {canCreate && page === "reports" && !showDRForm && (
               <button onClick={() => { setShowDRForm(true); setShowWOForm(false); }} style={{ background: theme.accent, border: "none", borderRadius: 8, padding: "8px 12px", color: "#0f1117", fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}>
                 <Icon name="plus" size={13} color="#0f1117" /> Report
               </button>
             )}
+            {/* User avatar / sign out */}
+            <button onClick={auth.signOut} title="Sign out" style={{ width: 30, height: 30, borderRadius: "50%", border: `2px solid ${theme.accent}40`, background: theme.accentDim, color: theme.accent, fontSize: 12, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>
+              {auth.fullName?.charAt(0) || '?'}
+            </button>
           </div>
         </div>
 
@@ -200,16 +220,16 @@ export default function App() {
           )}
 
           {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} isMobile />}
-          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile />}
+          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile canManage={canManage} />}
           {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} isMobile onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
-          {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} isMobile />}
-          {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
-          {page === "admin" && <AdminConfig orgData={orgData} projects={projects} isMobile />}
+          {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} isMobile canManage={canManage} />}
+          {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
+          {page === "admin" && canManage && <AdminConfig orgData={orgData} projects={projects} isMobile />}
         </div>
 
         {/* Bottom tab bar */}
         <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: theme.surface, borderTop: `1px solid ${theme.border}`, display: "flex", justifyContent: "space-around", alignItems: "center", height: 62, zIndex: 200, paddingBottom: "env(safe-area-inset-bottom, 4px)" }}>
-          {navItems.map(item => (
+          {mobileNav.map(item => (
             <button key={item.id} onClick={() => nav(item.id)} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 0", border: "none", background: "none", cursor: "pointer", minWidth: 52 }}>
               <Icon name={item.icon} size={20} color={page === item.id ? theme.accent : theme.textMuted} />
               <span style={{ fontSize: 10, fontWeight: page === item.id ? 700 : 500, color: page === item.id ? theme.accent : theme.textMuted }}>{item.label}</span>
@@ -241,16 +261,28 @@ export default function App() {
             </button>
           ))}
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
-          <Btn small onClick={() => { setShowWOForm(true); setShowDRForm(false); setPage("workorders"); }}><Icon name="plus" size={14} /> Work Order</Btn>
-          <Btn small variant="secondary" onClick={() => { setShowDRForm(true); setShowWOForm(false); setPage("reports"); }}><Icon name="plus" size={14} /> Daily Report</Btn>
+        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          {canCreate && <Btn small onClick={() => { setShowWOForm(true); setShowDRForm(false); setEditingWO(null); setPage("workorders"); }}><Icon name="plus" size={14} /> Work Order</Btn>}
+          {canCreate && <Btn small variant="secondary" onClick={() => { setShowDRForm(true); setShowWOForm(false); setPage("reports"); }}><Icon name="plus" size={14} /> Daily Report</Btn>}
+          {/* User profile */}
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: 8, paddingLeft: 12, borderLeft: `1px solid ${theme.border}` }}>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 12, fontWeight: 600, color: theme.text }}>{auth.fullName}</div>
+              <div style={{ fontSize: 10, color: theme.accent, textTransform: "uppercase", fontWeight: 600 }}>{auth.role}</div>
+            </div>
+            <button onClick={auth.signOut} title="Sign out" style={{ width: 32, height: 32, borderRadius: "50%", border: `2px solid ${theme.accent}40`, background: theme.accentDim, color: theme.accent, fontSize: 13, fontWeight: 800, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}>
+              {auth.fullName?.charAt(0) || '?'}
+            </button>
+          </div>
         </div>
       </div>
 
-      <div style={{ background: "rgba(74,222,128,0.08)", borderBottom: `1px solid rgba(74,222,128,0.2)`, padding: "4px 24px", display: "flex", alignItems: "center", gap: 8, fontSize: 11 }}>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: theme.success }} />
-        <span style={{ color: theme.success, fontWeight: 600 }}>Connected to Supabase</span>
-        <span style={{ color: theme.textMuted }}>• {rigs.length} rigs • {crews.length} crews • {workOrders.length} work orders • {dailyReports.length} reports</span>
+      <div style={{ background: "rgba(74,222,128,0.08)", borderBottom: `1px solid rgba(74,222,128,0.2)`, padding: "4px 24px", display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 11 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ width: 6, height: 6, borderRadius: "50%", background: theme.success }} />
+          <span style={{ color: theme.success, fontWeight: 600 }}>Connected</span>
+          <span style={{ color: theme.textMuted }}>• {rigs.length} rigs • {crews.length} crews • {workOrders.length} WOs • {dailyReports.length} reports</span>
+        </div>
       </div>
 
       <div style={{ padding: "24px 28px", maxWidth: 1440, margin: "0 auto" }}>
@@ -264,11 +296,11 @@ export default function App() {
         {showDRForm && page === "reports" && <div style={{ marginBottom: 24 }}><DailyReportForm onSubmit={handleCreateDR} onCancel={() => setShowDRForm(false)} orgData={orgData} workOrders={workOrders} /></div>}
 
         {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} />}
-        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} />}
+        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} canManage={canManage} />}
         {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
-        {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} />}
-        {page === "billing" && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}
-        {page === "admin" && <AdminConfig orgData={orgData} projects={projects} />}
+        {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} canManage={canManage} />}
+        {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}
+        {page === "admin" && canManage && <AdminConfig orgData={orgData} projects={projects} />}
       </div>
     </div>
   );

@@ -116,10 +116,17 @@ function StaffSection({ staff, onRefresh }) {
   const fields = [
     { key: "first_name", label: "First Name" },
     { key: "last_name", label: "Last Name" },
-    { key: "role_title", label: "Role", type: "select", options: [
+    { key: "role_title", label: "Job Title", type: "select", options: [
       { value: "Lead Driller", label: "Lead Driller" }, { value: "Driller Helper", label: "Driller Helper" },
       { value: "CPT Operator", label: "CPT Operator" }, { value: "Equipment Operator", label: "Equipment Operator" },
       { value: "Geologist", label: "Geologist" }, { value: "Inspector", label: "Inspector" },
+      { value: "Project Manager", label: "Project Manager" }, { value: "Admin", label: "Admin" },
+    ]},
+    { key: "app_role", label: "App Access", type: "select", options: [
+      { value: "admin", label: "Admin — Full access" },
+      { value: "manager", label: "Manager — Approve & manage" },
+      { value: "driller", label: "Driller — Submit reports" },
+      { value: "viewer", label: "Viewer — Read only" },
     ]},
     { key: "phone", label: "Phone" },
     { key: "email", label: "Email" },
@@ -127,7 +134,7 @@ function StaffSection({ staff, onRefresh }) {
   ];
 
   const save = async (data) => {
-    const payload = { first_name: data.first_name, last_name: data.last_name, role_title: data.role_title, phone: data.phone, email: data.email, hourly_rate: Number(data.hourly_rate) || null };
+    const payload = { first_name: data.first_name, last_name: data.last_name, role_title: data.role_title, app_role: data.app_role || 'viewer', phone: data.phone, email: data.email, hourly_rate: Number(data.hourly_rate) || null };
     if (data.id) {
       await supabase.from('staff_members').update(payload).eq('id', data.id);
     } else {
@@ -156,7 +163,12 @@ function StaffSection({ staff, onRefresh }) {
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{s.first_name} {s.last_name}</span>
               <span style={{ fontSize: 12, color: theme.info, fontWeight: 500 }}>{s.role_title}</span>
+              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600, textTransform: "uppercase",
+                background: s.app_role === 'admin' ? 'rgba(244,165,58,0.15)' : s.app_role === 'manager' ? 'rgba(96,165,250,0.15)' : s.app_role === 'driller' ? 'rgba(74,222,128,0.15)' : 'rgba(139,144,158,0.15)',
+                color: s.app_role === 'admin' ? theme.accent : s.app_role === 'manager' ? theme.info : s.app_role === 'driller' ? theme.success : theme.textMuted,
+              }}>{s.app_role || 'viewer'}</span>
               <span style={{ fontSize: 12, color: theme.textMuted }}>{s.phone}</span>
+              {s.auth_user_id && <span style={{ fontSize: 9, color: theme.success, fontWeight: 600 }}>✓ LOGIN</span>}
               {s.hourly_rate && <span style={{ fontSize: 12, color: theme.accent }}>${s.hourly_rate}/hr</span>}
             </div>
             <div style={{ display: "flex", gap: 6 }}>

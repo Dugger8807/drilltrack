@@ -267,7 +267,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 }
 
 // ─── Daily Reports List with Approve/Reject ──────────────────────────
-export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile }) {
+export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile, canManage }) {
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
   const [reviewNotes, setReviewNotes] = useState({});
@@ -386,7 +386,7 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
                     <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r)}><Icon name="report" size={12} /> Download PDF</Btn>
                   </div>}
 
-                  {r.status === "submitted" && (
+                  {canManage && r.status === "submitted" && (
                     <div style={{ marginTop: 16, padding: 14, background: "rgba(244,165,58,0.06)", border: `1px solid ${theme.accent}30`, borderRadius: 8 }}>
                       <div style={{ fontSize: 12, fontWeight: 700, color: theme.accent, marginBottom: 8, textTransform: "uppercase" }}>Review This Report</div>
                       <Field label="Review Notes">

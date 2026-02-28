@@ -220,7 +220,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 }
 
 // ─── Work Orders List (reads adapted data) ───────────────────────────
-export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile }) {
+export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, canManage }) {
   const [filter, setFilter] = useState("all");
   const [expandedWO, setExpandedWO] = useState(null);
   const [attachments, setAttachments] = useState({});
@@ -327,13 +327,13 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile })
                   </div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
-                    {wo.status === "pending" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "approved")}><Icon name="check" size={12} /> Approve</Btn>}
-                    {wo.status === "pending" && <Btn variant="danger" small onClick={() => onStatusChange(wo.id, "cancelled")}><Icon name="reject" size={12} /> Reject</Btn>}
-                    {wo.status === "approved" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "scheduled")}><Icon name="calendar" size={12} /> Mark Scheduled</Btn>}
-                    {wo.status === "scheduled" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="drill" size={12} /> Start Work</Btn>}
-                    {wo.status === "in_progress" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "completed")}><Icon name="check" size={12} /> Complete</Btn>}
+                    {canManage && wo.status === "pending" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "approved")}><Icon name="check" size={12} /> Approve</Btn>}
+                    {canManage && wo.status === "pending" && <Btn variant="danger" small onClick={() => onStatusChange(wo.id, "cancelled")}><Icon name="reject" size={12} /> Reject</Btn>}
+                    {canManage && wo.status === "approved" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "scheduled")}><Icon name="calendar" size={12} /> Mark Scheduled</Btn>}
+                    {canManage && wo.status === "scheduled" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="drill" size={12} /> Start Work</Btn>}
+                    {canManage && wo.status === "in_progress" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "completed")}><Icon name="check" size={12} /> Complete</Btn>}
                     <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo)}><Icon name="report" size={12} /> PDF</Btn>
-                    <Btn variant="secondary" small onClick={() => onEdit(wo)}><Icon name="clipboard" size={12} /> Edit</Btn>
+                    {canManage && <Btn variant="secondary" small onClick={() => onEdit(wo)}><Icon name="clipboard" size={12} /> Edit</Btn>}
                   </div>
                 </div>
               )}
