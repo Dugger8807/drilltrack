@@ -2,6 +2,7 @@ import { useState, useEffect, createContext, useContext } from "react";
 import { supabase } from "./supabaseClient.js";
 import { theme } from "./constants.js";
 import { Icon, Btn } from "./ui.jsx";
+import { TE_LOGO } from "./logo.js";
 
 const AuthContext = createContext(null);
 
@@ -88,11 +89,10 @@ export function AuthProvider({ children }) {
     return (
       <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
         <div style={{ textAlign: "center" }}>
-          <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${theme.accent}, #e08520)`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-            <Icon name="drill" size={24} color="#0f1117" />
-          </div>
-          <div style={{ fontSize: 18, fontWeight: 800, color: theme.text, marginBottom: 8 }}>DRILLTRACK</div>
-          <div style={{ fontSize: 13, color: theme.textMuted }}>Checking authentication...</div>
+          <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 40, marginBottom: 16 }} />
+          <div style={{ fontSize: 18, fontWeight: 800, color: theme.text, marginBottom: 4 }}>DRILLTRACK</div>
+          <div style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.12em" }}>Geotechnical Field Operations</div>
+          <div style={{ fontSize: 12, color: theme.textMuted, marginTop: 12 }}>Checking authentication...</div>
         </div>
       </div>
     );
@@ -145,11 +145,9 @@ function LoginScreen({ onSignIn, error }) {
       <div style={{ width: "100%", maxWidth: 380 }}>
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
-          <div style={{ width: 56, height: 56, borderRadius: 14, background: `linear-gradient(135deg, ${theme.accent}, #e08520)`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px", boxShadow: "0 8px 32px rgba(244,165,58,0.25)" }}>
-            <Icon name="drill" size={28} color="#0f1117" />
-          </div>
-          <div style={{ fontSize: 22, fontWeight: 800, color: theme.text, letterSpacing: "-0.02em" }}>DRILLTRACK</div>
-          <div style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.15em", marginTop: 2 }}>Geotechnical Operations</div>
+          <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 48, marginBottom: 20 }} />
+          <div style={{ fontSize: 24, fontWeight: 800, color: theme.text, letterSpacing: "-0.02em" }}>DRILLTRACK</div>
+          <div style={{ fontSize: 10, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.18em", marginTop: 4, fontWeight: 600 }}>Geotechnical Field Operations Management Platform</div>
         </div>
 
         {/* Login card */}

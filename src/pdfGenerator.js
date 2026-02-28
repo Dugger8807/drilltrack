@@ -3,6 +3,7 @@
 
 import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
+import { TE_LOGO } from './logo.js';
 
 // ─── Color palette ───────────────────────────────────────────────────
 const C = {
@@ -23,31 +24,33 @@ function drawHeader(doc, title, subtitle) {
   const w = doc.internal.pageSize.getWidth();
   // Header bar
   doc.setFillColor(...C.headerBg);
-  doc.rect(0, 0, w, 28, 'F');
+  doc.rect(0, 0, w, 30, 'F');
   // Accent stripe
   doc.setFillColor(...C.accent);
-  doc.rect(0, 28, w, 2, 'F');
-  // Logo text
+  doc.rect(0, 30, w, 2, 'F');
+  // TE Logo
+  try { doc.addImage(TE_LOGO, 'PNG', 10, 4, 42, 22); } catch(e) {}
+  // DrillTrack text
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(14);
+  doc.setFontSize(11);
   doc.setTextColor(...C.white);
-  doc.text('DRILLTRACK', 14, 12);
-  doc.setFontSize(7);
-  doc.setTextColor(180, 180, 190);
-  doc.text('GEOTECHNICAL OPERATIONS', 14, 18);
+  doc.text('DRILLTRACK', 56, 13);
+  doc.setFontSize(5.5);
+  doc.setTextColor(...C.accent);
+  doc.text('GEOTECHNICAL FIELD OPERATIONS', 56, 19);
   // Title
   doc.setFontSize(12);
   doc.setTextColor(...C.white);
-  doc.text(title, w - 14, 12, { align: 'right' });
+  doc.text(title, w - 14, 13, { align: 'right' });
   if (subtitle) {
     doc.setFontSize(8);
     doc.setTextColor(180, 180, 190);
-    doc.text(subtitle, w - 14, 18, { align: 'right' });
+    doc.text(subtitle, w - 14, 19, { align: 'right' });
   }
   // Date generated
   doc.setFontSize(7);
   doc.setTextColor(150, 150, 160);
-  doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, w - 14, 24, { align: 'right' });
+  doc.text(`Generated: ${new Date().toLocaleDateString()} ${new Date().toLocaleTimeString()}`, w - 14, 25, { align: 'right' });
 }
 
 // ─── Helper: draw footer on each page ────────────────────────────────
@@ -126,7 +129,7 @@ export async function generateDailyReportPDF(report) {
 
   drawHeader(doc, 'DAILY DRILLER REPORT', report.reportNumber);
 
-  let y = 38;
+  let y = 40;
 
   // ── Report info ──
   y = sectionTitle(doc, y, 'Report Information');
@@ -290,7 +293,7 @@ export async function generateWorkOrderPDF(wo) {
 
   drawHeader(doc, 'WORK ORDER', wo.woNumber);
 
-  let y = 38;
+  let y = 40;
 
   // ── WO info ──
   y = sectionTitle(doc, y, 'Work Order Details');

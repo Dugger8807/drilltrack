@@ -3,6 +3,7 @@ import { theme } from "./constants.js";
 import { Icon, Btn } from "./ui.jsx";
 import { useIsMobile } from "./useMediaQuery.js";
 import { useAuth } from "./AuthProvider.jsx";
+import { TE_LOGO } from "./logo.js";
 import { supabase } from "./supabaseClient.js";
 import { useOrgData, useWorkOrders, useDailyReports, useProjects } from "./hooks.js";
 import Dashboard from "./Dashboard.jsx";
@@ -79,11 +80,10 @@ function LoadingScreen() {
   return (
     <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
-        <div style={{ width: 48, height: 48, borderRadius: 12, background: `linear-gradient(135deg, ${theme.accent}, #e08520)`, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 16px" }}>
-          <Icon name="drill" size={24} color="#0f1117" />
-        </div>
-        <div style={{ fontSize: 18, fontWeight: 800, color: theme.text, marginBottom: 8 }}>DRILLTRACK</div>
-        <div style={{ fontSize: 13, color: theme.textMuted }}>Loading from database...</div>
+        <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 40, marginBottom: 16 }} />
+        <div style={{ fontSize: 18, fontWeight: 800, color: theme.text, marginBottom: 4 }}>DRILLTRACK</div>
+        <div style={{ fontSize: 10, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12, fontWeight: 600 }}>Geotechnical Field Operations</div>
+        <div style={{ fontSize: 13, color: theme.textMuted }}>Loading...</div>
       </div>
     </div>
   );
@@ -189,10 +189,8 @@ export default function App() {
         {/* Mobile top bar */}
         <div style={{ background: theme.surface, borderBottom: `1px solid ${theme.border}`, padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 50, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <div style={{ width: 28, height: 28, borderRadius: 7, background: `linear-gradient(135deg, ${theme.accent}, #e08520)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <Icon name="drill" size={15} color="#0f1117" />
-            </div>
-            <span style={{ fontSize: 14, fontWeight: 800, color: theme.text }}>DRILLTRACK</span>
+            <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 24 }} />
+            <span style={{ fontSize: 13, fontWeight: 800, color: theme.text }}>DRILLTRACK</span>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
             {canCreate && page === "workorders" && !showWOForm && (
@@ -249,12 +247,10 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: theme.bg, color: theme.text, fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ background: theme.surface, borderBottom: `1px solid ${theme.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 32, height: 32, borderRadius: 8, background: `linear-gradient(135deg, ${theme.accent}, #e08520)`, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <Icon name="drill" size={18} color="#0f1117" />
-          </div>
+          <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 30 }} />
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, color: theme.text, letterSpacing: "-0.02em" }}>DRILLTRACK</div>
-            <div style={{ fontSize: 9, color: theme.textMuted, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: -2 }}>Geotechnical Operations</div>
+            <div style={{ fontSize: 8, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: -2, fontWeight: 600 }}>Geotechnical Field Operations</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 2 }}>
