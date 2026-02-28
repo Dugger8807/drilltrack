@@ -215,6 +215,36 @@ export async function generateDailyReportPDF(report) {
     y += 8;
   }
 
+  // ── Other Activities ──
+  if (report.activities?.length > 0) {
+    y = checkPage(doc, y, 20 + report.activities.length * 8);
+    y = sectionTitle(doc, y, 'Other Activities');
+    doc.autoTable({
+      startY: y,
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: C.accent, textColor: [15, 17, 23], fontStyle: 'bold', fontSize: 8 },
+      bodyStyles: { fontSize: 8, textColor: [200, 200, 200], fillColor: [24, 27, 36] },
+      alternateRowStyles: { fillColor: [30, 34, 44] },
+      columns: [
+        { header: 'Activity', dataKey: 'type' },
+        { header: 'Hours', dataKey: 'hours' },
+        { header: 'Details', dataKey: 'desc' },
+      ],
+      body: report.activities.map(a => ({
+        type: a.activity_type || a.activityType || '',
+        hours: a.hours || 0,
+        desc: a.description || '',
+      })),
+    });
+    y = doc.lastAutoTable.finalY + 4;
+    const totalHrs = report.activities.reduce((s, a) => s + (Number(a.hours) || 0), 0);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.setTextColor(...C.accent);
+    doc.text(`Total Hours: ${totalHrs}`, w - 14, y, { align: 'right' });
+    y += 8;
+  }
+
   // ── Equipment / Safety / Notes ──
   y = checkPage(doc, y, 30);
   y = sectionTitle(doc, y, 'Additional Information');

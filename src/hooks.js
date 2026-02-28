@@ -190,6 +190,7 @@ export function useDailyReports() {
     const drIds = drs.map(d => d.id);
     let production = [];
     let billing = [];
+    let activities = [];
     if (drIds.length) {
       production = await fetchTable('daily_report_production', {
         select: '*, boring:wo_borings(boring_id_label), boring_type:boring_types(name)',
@@ -199,12 +200,17 @@ export function useDailyReports() {
         select: '*, rate_item:wo_rate_schedule(billing_unit:billing_unit_types(name, default_unit))',
         order: 'sort_order',
       });
+      activities = await fetchTable('daily_report_activities', {
+        select: '*',
+        order: 'sort_order',
+      });
     }
 
     const enriched = drs.map(dr => ({
       ...dr,
       production: production.filter(p => p.daily_report_id === dr.id),
       billing: billing.filter(b => b.daily_report_id === dr.id),
+      activities: activities.filter(a => a.daily_report_id === dr.id),
     }));
 
     setReports(enriched);
@@ -213,7 +219,7 @@ export function useDailyReports() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const createReport = async (report, productionEntries = [], billingEntries = []) => {
+  const createReport = async (report, productionEntries = [], billingEntries = [], activityEntries = []) => {
     const { data, error } = await supabase.from('daily_reports').insert(report).select().single();
     if (error) { console.error('Error creating report:', error); return null; }
 
@@ -224,6 +230,10 @@ export function useDailyReports() {
     if (billingEntries.length) {
       const rows = billingEntries.map(b => ({ ...b, daily_report_id: data.id }));
       await supabase.from('daily_report_billing').insert(rows);
+    }
+    if (activityEntries.length) {
+      const rows = activityEntries.map(a => ({ ...a, daily_report_id: data.id }));
+      await supabase.from('daily_report_activities').insert(rows);
     }
 
     await refresh();

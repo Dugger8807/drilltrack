@@ -68,6 +68,10 @@ function adaptDailyReports(dbReports) {
       id: b.id, unitName: b.rate_item?.billing_unit?.name || '',
       quantity: b.quantity, rate: b.rate, total: b.total, notes: b.notes || '',
     })),
+    activities: (dr.activities || []).map(a => ({
+      id: a.id, activityType: a.activity_type, activity_type: a.activity_type,
+      hours: a.hours, description: a.description || '',
+    })),
   }));
 }
 
@@ -137,9 +141,9 @@ export default function App() {
     }
   };
 
-  const handleCreateDR = async (reportData, production, billing, pendingPhotos) => {
+  const handleCreateDR = async (reportData, production, billing, pendingPhotos, activities) => {
     reportData.org_id = ORG_ID;
-    const result = await createReport(reportData, production, billing);
+    const result = await createReport(reportData, production, billing, activities);
     if (result) {
       // Upload any pending photos
       if (pendingPhotos?.length && result.id) {

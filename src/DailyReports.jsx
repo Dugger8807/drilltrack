@@ -21,6 +21,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   ]);
 
   const [billing, setBilling] = useState([]);
+  const [activities, setActivities] = useState([]);
   const [pendingPhotos, setPendingPhotos] = useState([]); // { file, caption, preview }
   const [submitting, setSubmitting] = useState(false);
 
@@ -47,6 +48,16 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   const updateProd = (idx, field, val) => setProduction(p => p.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const removeProd = (idx) => setProduction(p => p.filter((_, i) => i !== idx));
   const updateBill = (idx, field, val) => setBilling(b => b.map((x, i) => i === idx ? { ...x, [field]: val } : x));
+
+  const ACTIVITY_TYPES = [
+    "Safety Training", "Standby", "Down Time — Mechanical", "Down Time — Weather",
+    "Weather Delay", "Clearing / Access", "Boring Layout", "Mobilization",
+    "Demobilization", "Equipment Setup", "Decontamination", "Traffic Control",
+    "Grouting / Abandonment", "Concrete Coring", "Other",
+  ];
+  const addActivity = () => setActivities(a => [...a, { activity_type: ACTIVITY_TYPES[0], hours: '', description: '' }]);
+  const updateActivity = (idx, field, val) => setActivities(a => a.map((x, i) => i === idx ? { ...x, [field]: val } : x));
+  const removeActivity = (idx) => setActivities(a => a.filter((_, i) => i !== idx));
 
   // ── Photo handling ──
   const addPhoto = (file) => {
@@ -110,9 +121,14 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       rate: Number(b.rate),
       sort_order: i,
     }));
+    const actData = activities.filter(a => a.activity_type && (Number(a.hours) > 0 || a.description)).map((a, i) => ({
+      activity_type: a.activity_type,
+      hours: Number(a.hours) || 0,
+      description: a.description || '',
+      sort_order: i,
+    }));
 
-    // Create the report first
-    await onSubmit(reportData, prodData, billData, pendingPhotos);
+    await onSubmit(reportData, prodData, billData, pendingPhotos, actData);
     setSubmitting(false);
   };
 
@@ -199,6 +215,39 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
                 <input style={{ ...inputStyle, fontSize: 13 }} value={p.description} onChange={e => updateProd(idx, 'description', e.target.value)} placeholder="Notes..." />
               </div>
               {production.length > 1 && <Btn variant="ghost" small onClick={() => removeProd(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Other Activities */}
+      <div style={{ marginTop: 16, background: theme.surface2, borderRadius: 10, padding: "14px 12px", border: `1px solid ${theme.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: theme.accent }}>
+            <Icon name="calendar" size={15} color={theme.accent} /> Other Activities ({activities.length}{activities.length > 0 ? ` • ${activities.reduce((s, a) => s + (Number(a.hours) || 0), 0)} hrs` : ''})
+          </h3>
+          <Btn variant="secondary" small onClick={addActivity}><Icon name="plus" size={12} /> Add</Btn>
+        </div>
+        {activities.length === 0 && (
+          <div style={{ padding: "10px 0", textAlign: "center", color: theme.textMuted, fontSize: 12 }}>No activities — tap Add for standby, training, delays, etc.</div>
+        )}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {activities.map((a, idx) => (
+            <div key={idx} style={{ background: theme.bg, borderRadius: 8, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ flex: "1 1 160px", minWidth: 140 }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Activity</label>
+                <select style={{ ...selectStyle, fontSize: 13 }} value={a.activity_type} onChange={e => updateActivity(idx, 'activity_type', e.target.value)}>
+                  {ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: "0 0 80px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Hours</label>
+                <input style={{ ...inputStyle, fontSize: 13 }} type="number" step="0.25" value={a.hours} onChange={e => updateActivity(idx, 'hours', e.target.value)} placeholder="0" />
+              </div>
+              <div style={{ flex: "1 1 100%", minWidth: 0 }}>
+                <input style={{ ...inputStyle, fontSize: 13 }} value={a.description} onChange={e => updateActivity(idx, 'description', e.target.value)} placeholder="Details..." />
+              </div>
+              <Btn variant="ghost" small onClick={() => removeActivity(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>
             </div>
           ))}
         </div>
@@ -359,6 +408,19 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
                         </div>
                       ))}
                       <div style={{ borderTop: `1px solid ${theme.border}`, marginTop: 6, paddingTop: 6, textAlign: "right", fontSize: 14, fontWeight: 700, color: theme.accent }}>Total: ${totalBilling.toLocaleString()}</div>
+                    </div>
+                  )}
+
+                  {r.activities?.length > 0 && (
+                    <div style={{ marginTop: 14, background: theme.surface2, borderRadius: 8, padding: 14 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", textTransform: "uppercase" }}>Other Activities ({r.activities.length} • {r.activities.reduce((s, a) => s + (Number(a.hours) || 0), 0)} hrs)</span>
+                      {r.activities.map((a, i) => (
+                        <div key={i} style={{ display: "flex", gap: 12, fontSize: 12, padding: "4px 0", borderBottom: i < r.activities.length - 1 ? `1px solid ${theme.border}15` : "none" }}>
+                          <span style={{ flex: 1, color: theme.text, fontWeight: 600 }}>{a.activity_type}</span>
+                          <span style={{ color: theme.accent, fontWeight: 600, minWidth: 50 }}>{a.hours} hrs</span>
+                          {a.description && <span style={{ flex: 2, color: theme.textMuted }}>{a.description}</span>}
+                        </div>
+                      ))}
                     </div>
                   )}
 
