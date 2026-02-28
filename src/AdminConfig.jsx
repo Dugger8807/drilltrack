@@ -498,17 +498,18 @@ function ClientsSection({ clients, onRefresh }) {
   );
 }
 
-// ─── Projects Section ────────────────────────────────────────────────
+// ─── Projects Section with Geocoding ─────────────────────────────────
 function ProjectsSection({ projects, clients, onRefresh }) {
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [geocoding, setGeocoding] = useState(null); // project id being geocoded
 
   const clientOpts = [{ value: '', label: 'Select client...' }, ...clients.map(c => ({ value: c.id, label: c.company_name }))];
   const fields = [
     { key: "project_number", label: "Project Number", placeholder: "2026-0003" },
     { key: "name", label: "Project Name", placeholder: "New Highway Bridge" },
     { key: "client_id", label: "Client", type: "select", options: clientOpts },
-    { key: "location", label: "Location", placeholder: "Mobile County, AL" },
+    { key: "location", label: "Address / Location", placeholder: "123 Main St, Mobile, AL 36602", wide: true },
     { key: "lat", label: "Latitude", type: "number", placeholder: "30.6954" },
     { key: "lng", label: "Longitude", type: "number", placeholder: "-88.0399" },
     { key: "status", label: "Status", type: "select", options: [
@@ -520,8 +521,35 @@ function ProjectsSection({ projects, clients, onRefresh }) {
     { key: "description", label: "Description", wide: true },
   ];
 
+  // Geocode a location string to lat/lng via Nominatim
+  const geocodeAddress = async (address) => {
+    if (!address) return null;
+    try {
+      const q = encodeURIComponent(address);
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=us`, {
+        headers: { 'User-Agent': 'DrillTrack/1.0' },
+      });
+      const results = await resp.json();
+      if (results?.length > 0) {
+        return { lat: parseFloat(results[0].lat), lng: parseFloat(results[0].lon) };
+      }
+    } catch (err) {
+      console.error('Geocode error:', err);
+    }
+    return null;
+  };
+
   const save = async (data) => {
-    const payload = { project_number: data.project_number, name: data.name, client_id: data.client_id || null, location: data.location, lat: Number(data.lat) || null, lng: Number(data.lng) || null, status: data.status || 'active', contract_value: Number(data.contract_value) || null, po_number: data.po_number, description: data.description };
+    let lat = Number(data.lat) || null;
+    let lng = Number(data.lng) || null;
+
+    // Auto-geocode if location provided but no coords
+    if (data.location && (!lat || !lng)) {
+      const coords = await geocodeAddress(data.location);
+      if (coords) { lat = coords.lat; lng = coords.lng; }
+    }
+
+    const payload = { project_number: data.project_number, name: data.name, client_id: data.client_id || null, location: data.location, lat, lng, status: data.status || 'active', contract_value: Number(data.contract_value) || null, po_number: data.po_number, description: data.description };
     if (data.id) {
       await supabase.from('projects').update(payload).eq('id', data.id);
     } else {
@@ -530,23 +558,70 @@ function ProjectsSection({ projects, clients, onRefresh }) {
     setEditing(null); setAdding(false); onRefresh();
   };
 
+  // Geocode a single project
+  const geocodeProject = async (project) => {
+    if (!project.location) return;
+    setGeocoding(project.id);
+    const coords = await geocodeAddress(project.location);
+    if (coords) {
+      await supabase.from('projects').update({ lat: coords.lat, lng: coords.lng }).eq('id', project.id);
+      onRefresh();
+    }
+    setGeocoding(null);
+  };
+
+  // Geocode all projects missing coordinates
+  const geocodeAll = async () => {
+    const missing = projects.filter(p => p.location && (!p.lat || !p.lng));
+    for (const p of missing) {
+      setGeocoding(p.id);
+      const coords = await geocodeAddress(p.location);
+      if (coords) {
+        await supabase.from('projects').update({ lat: coords.lat, lng: coords.lng }).eq('id', p.id);
+      }
+      // Rate limit: Nominatim asks for 1 req/sec
+      await new Promise(r => setTimeout(r, 1100));
+    }
+    setGeocoding(null);
+    onRefresh();
+  };
+
+  const missingCoords = projects.filter(p => p.location && (!p.lat || !p.lng)).length;
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontSize: 13, color: theme.textMuted }}>{projects.length} projects</span>
-        <Btn small onClick={() => { setAdding(true); setEditing(null); }}><Icon name="plus" size={12} /> Add Project</Btn>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12, flexWrap: "wrap", gap: 8 }}>
+        <span style={{ fontSize: 13, color: theme.textMuted }}>
+          {projects.length} projects
+          {missingCoords > 0 && <span style={{ color: theme.accent, fontWeight: 600 }}> • {missingCoords} missing coordinates</span>}
+        </span>
+        <div style={{ display: "flex", gap: 6 }}>
+          {missingCoords > 0 && (
+            <Btn small variant="secondary" onClick={geocodeAll} disabled={!!geocoding}>
+              <Icon name="map" size={12} /> {geocoding ? 'Geocoding...' : `Geocode All (${missingCoords})`}
+            </Btn>
+          )}
+          <Btn small onClick={() => { setAdding(true); setEditing(null); }}><Icon name="plus" size={12} /> Add Project</Btn>
+        </div>
       </div>
       {adding && <div style={{ marginBottom: 12 }}><InlineEditor fields={fields} item={{ status: "active" }} onSave={save} onCancel={() => setAdding(false)} /></div>}
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {projects.map(p => editing === p.id ? (
           <InlineEditor key={p.id} fields={fields} item={p} onSave={save} onCancel={() => setEditing(null)} />
         ) : (
-          <div key={p.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
+          <div key={p.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 6 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap", flex: 1 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{p.project_number}</span>
               <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{p.name}</span>
               <span style={{ fontSize: 12, color: theme.textMuted }}>{p.client?.company_name || ''}</span>
-              <span style={{ fontSize: 12, color: theme.textMuted }}>{p.location}</span>
+              <span style={{ fontSize: 11, color: theme.textMuted }}>{p.location}</span>
+              {p.lat && p.lng ? (
+                <span style={{ fontSize: 9, color: theme.success, fontWeight: 700, background: "rgba(74,222,128,0.1)", padding: "2px 6px", borderRadius: 4 }}>📍 {p.lat.toFixed ? p.lat.toFixed(4) : p.lat}, {p.lng.toFixed ? p.lng.toFixed(4) : p.lng}</span>
+              ) : p.location ? (
+                <button onClick={() => geocodeProject(p)} disabled={geocoding === p.id} style={{ fontSize: 9, fontWeight: 700, background: "rgba(244,165,58,0.1)", color: theme.accent, padding: "2px 8px", borderRadius: 4, border: `1px solid ${theme.accent}30`, cursor: "pointer", fontFamily: "inherit" }}>
+                  {geocoding === p.id ? '...' : '📍 Geocode'}
+                </button>
+              ) : null}
               <span style={{ fontSize: 11, color: p.status === 'active' ? theme.success : theme.textMuted, fontWeight: 600, textTransform: "uppercase" }}>{p.status}</span>
             </div>
             <Btn variant="ghost" small onClick={() => { setEditing(p.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
