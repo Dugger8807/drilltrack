@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { theme, inputStyle, selectStyle } from "./constants.js";
 import { Icon, Btn, Field } from "./ui.jsx";
-import { supabase } from "./supabaseClient.js";
+import { supabase, supabaseAdmin } from "./supabaseClient.js";
 
 const ORG_ID = 'a1b2c3d4-0000-0000-0000-000000000001';
 
 const tabs = [
   { id: "rigs", label: "Rigs", icon: "truck" },
-  { id: "staff", label: "Staff", icon: "users" },
+  { id: "staff", label: "Staff & Users", icon: "users" },
   { id: "crews", label: "Crews", icon: "users" },
   { id: "billing", label: "Billing Units", icon: "dollar" },
   { id: "boring_types", label: "Boring Types", icon: "drill" },
@@ -108,10 +108,13 @@ function RigsSection({ rigs, onRefresh }) {
   );
 }
 
-// ─── Staff Section ───────────────────────────────────────────────────
+// ─── Staff Section with User Invite ──────────────────────────────────
 function StaffSection({ staff, onRefresh }) {
   const [editing, setEditing] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [inviting, setInviting] = useState(null); // staff member id to create login for
+  const [invitePassword, setInvitePassword] = useState('');
+  const [inviteStatus, setInviteStatus] = useState(null); // { type: 'success'|'error', msg }
 
   const fields = [
     { key: "first_name", label: "First Name" },
@@ -148,33 +151,137 @@ function StaffSection({ staff, onRefresh }) {
     onRefresh();
   };
 
+  // ── Create login for a staff member ──
+  const createLogin = async (staffMember) => {
+    if (!staffMember.email) return setInviteStatus({ type: 'error', msg: 'Staff member needs an email first.' });
+    if (!invitePassword || invitePassword.length < 6) return setInviteStatus({ type: 'error', msg: 'Password must be at least 6 characters.' });
+
+    setInviteStatus(null);
+
+    // Create auth user via admin API
+    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+      email: staffMember.email,
+      password: invitePassword,
+      email_confirm: true, // skip email verification
+    });
+
+    if (authError) {
+      // If user already exists, try to find and link them
+      if (authError.message?.includes('already been registered')) {
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+        const existing = users?.find(u => u.email === staffMember.email);
+        if (existing) {
+          await supabase.from('staff_members').update({ auth_user_id: existing.id }).eq('id', staffMember.id);
+          setInviteStatus({ type: 'success', msg: `Linked existing auth account for ${staffMember.email}` });
+          setInviting(null); setInvitePassword(''); onRefresh();
+          return;
+        }
+      }
+      setInviteStatus({ type: 'error', msg: authError.message });
+      return;
+    }
+
+    // Link auth user to staff member
+    await supabase.from('staff_members').update({ auth_user_id: authData.user.id }).eq('id', staffMember.id);
+
+    setInviteStatus({ type: 'success', msg: `Login created for ${staffMember.first_name}. They can sign in with ${staffMember.email}` });
+    setInviting(null);
+    setInvitePassword('');
+    onRefresh();
+  };
+
+  // ── Reset password for existing user ──
+  const resetPassword = async (staffMember) => {
+    if (!staffMember.auth_user_id) return;
+    if (!invitePassword || invitePassword.length < 6) return setInviteStatus({ type: 'error', msg: 'Password must be at least 6 characters.' });
+
+    const { error } = await supabaseAdmin.auth.admin.updateUserById(staffMember.auth_user_id, {
+      password: invitePassword,
+    });
+
+    if (error) {
+      setInviteStatus({ type: 'error', msg: error.message });
+    } else {
+      setInviteStatus({ type: 'success', msg: `Password reset for ${staffMember.first_name}. New password is active immediately.` });
+      setInviting(null);
+      setInvitePassword('');
+    }
+  };
+
   return (
     <div>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-        <span style={{ fontSize: 13, color: theme.textMuted }}>{staff.length} staff members</span>
-        <Btn small onClick={() => { setAdding(true); setEditing(null); }}><Icon name="plus" size={12} /> Add Staff</Btn>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        <span style={{ fontSize: 13, color: theme.textMuted }}>{staff.length} staff members • {staff.filter(s => s.auth_user_id).length} with login</span>
+        <Btn small onClick={() => { setAdding(true); setEditing(null); setInviting(null); }}><Icon name="plus" size={12} /> Add Staff</Btn>
       </div>
-      {adding && <div style={{ marginBottom: 12 }}><InlineEditor fields={fields} item={{ role_title: "Lead Driller" }} onSave={save} onCancel={() => setAdding(false)} /></div>}
+
+      {/* Status message */}
+      {inviteStatus && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 8, fontSize: 12,
+          background: inviteStatus.type === 'success' ? 'rgba(74,222,128,0.1)' : 'rgba(239,68,68,0.1)',
+          border: `1px solid ${inviteStatus.type === 'success' ? 'rgba(74,222,128,0.3)' : 'rgba(239,68,68,0.3)'}`,
+          color: inviteStatus.type === 'success' ? theme.success : theme.danger,
+        }}>
+          {inviteStatus.msg}
+          <button onClick={() => setInviteStatus(null)} style={{ float: "right", background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: 14 }}>×</button>
+        </div>
+      )}
+
+      {adding && <div style={{ marginBottom: 12 }}><InlineEditor fields={fields} item={{ role_title: "Lead Driller", app_role: "driller" }} onSave={save} onCancel={() => setAdding(false)} /></div>}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
         {staff.map(s => editing === s.id ? (
           <InlineEditor key={s.id} fields={fields} item={s} onSave={save} onCancel={() => setEditing(null)} />
         ) : (
-          <div key={s.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: s.is_active === false ? 0.4 : 1 }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{s.first_name} {s.last_name}</span>
-              <span style={{ fontSize: 12, color: theme.info, fontWeight: 500 }}>{s.role_title}</span>
-              <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600, textTransform: "uppercase",
-                background: s.app_role === 'admin' ? 'rgba(244,165,58,0.15)' : s.app_role === 'manager' ? 'rgba(96,165,250,0.15)' : s.app_role === 'driller' ? 'rgba(74,222,128,0.15)' : 'rgba(139,144,158,0.15)',
-                color: s.app_role === 'admin' ? theme.accent : s.app_role === 'manager' ? theme.info : s.app_role === 'driller' ? theme.success : theme.textMuted,
-              }}>{s.app_role || 'viewer'}</span>
-              <span style={{ fontSize: 12, color: theme.textMuted }}>{s.phone}</span>
-              {s.auth_user_id && <span style={{ fontSize: 9, color: theme.success, fontWeight: 600 }}>✓ LOGIN</span>}
-              {s.hourly_rate && <span style={{ fontSize: 12, color: theme.accent }}>${s.hourly_rate}/hr</span>}
+          <div key={s.id}>
+            <div style={{ background: theme.surface2, borderRadius: inviting === s.id ? "8px 8px 0 0" : 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: s.is_active === false ? 0.4 : 1, flexWrap: "wrap", gap: 6 }}>
+              <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{s.first_name} {s.last_name}</span>
+                <span style={{ fontSize: 12, color: theme.info, fontWeight: 500 }}>{s.role_title}</span>
+                <span style={{ fontSize: 10, padding: "2px 8px", borderRadius: 10, fontWeight: 600, textTransform: "uppercase",
+                  background: s.app_role === 'admin' ? 'rgba(244,165,58,0.15)' : s.app_role === 'manager' ? 'rgba(96,165,250,0.15)' : s.app_role === 'driller' ? 'rgba(74,222,128,0.15)' : 'rgba(139,144,158,0.15)',
+                  color: s.app_role === 'admin' ? theme.accent : s.app_role === 'manager' ? theme.info : s.app_role === 'driller' ? theme.success : theme.textMuted,
+                }}>{s.app_role || 'viewer'}</span>
+                {s.email && <span style={{ fontSize: 11, color: theme.textMuted }}>{s.email}</span>}
+                {s.auth_user_id && <span style={{ fontSize: 9, color: theme.success, fontWeight: 700, background: "rgba(74,222,128,0.1)", padding: "2px 6px", borderRadius: 4 }}>✓ HAS LOGIN</span>}
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {s.is_active !== false && (
+                  <Btn variant={s.auth_user_id ? "ghost" : "secondary"} small onClick={() => { setInviting(inviting === s.id ? null : s.id); setInvitePassword(''); setInviteStatus(null); setEditing(null); setAdding(false); }}>
+                    <Icon name="users" size={12} /> {s.auth_user_id ? 'Reset PW' : 'Create Login'}
+                  </Btn>
+                )}
+                <Btn variant="ghost" small onClick={() => { setEditing(s.id); setAdding(false); setInviting(null); }}><Icon name="clipboard" size={12} /></Btn>
+                <Btn variant="ghost" small onClick={() => toggleActive(s.id, s.is_active !== false)}><Icon name={s.is_active !== false ? "x" : "check"} size={12} color={s.is_active !== false ? theme.danger : theme.success} /></Btn>
+              </div>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <Btn variant="ghost" small onClick={() => { setEditing(s.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
-              <Btn variant="ghost" small onClick={() => toggleActive(s.id, s.is_active !== false)}><Icon name={s.is_active !== false ? "x" : "check"} size={12} color={s.is_active !== false ? theme.danger : theme.success} /></Btn>
-            </div>
+
+            {/* Invite / Reset password panel */}
+            {inviting === s.id && (
+              <div style={{ background: theme.bg, border: `1px solid ${theme.accent}30`, borderTop: "none", borderRadius: "0 0 8px 8px", padding: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 600, color: theme.accent, marginBottom: 8 }}>
+                  {s.auth_user_id ? `Reset password for ${s.first_name}` : `Create login for ${s.first_name} (${s.email})`}
+                </div>
+                {!s.email && (
+                  <div style={{ fontSize: 12, color: theme.danger, marginBottom: 8 }}>This staff member needs an email address first. Edit their profile to add one.</div>
+                )}
+                {s.email && (
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <input
+                      type="text"
+                      value={invitePassword}
+                      onChange={e => setInvitePassword(e.target.value)}
+                      placeholder="Set their password (min 6 chars)"
+                      style={{ ...inputStyle, flex: "1 1 200px", fontSize: 13 }}
+                    />
+                    <Btn small onClick={() => s.auth_user_id ? resetPassword(s) : createLogin(s)}>
+                      <Icon name="check" size={12} /> {s.auth_user_id ? 'Reset Password' : 'Create Login'}
+                    </Btn>
+                    <Btn variant="ghost" small onClick={() => setInviting(null)}>Cancel</Btn>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         ))}
       </div>
