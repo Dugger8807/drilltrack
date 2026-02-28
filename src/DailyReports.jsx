@@ -559,6 +559,29 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
                       </div>
                     </div>
                   )}
+
+                  {/* Reject back to edit — available on approved reports */}
+                  {canManage && r.status === "approved" && (
+                    <div style={{ marginTop: 16, padding: 14, background: "rgba(239,68,68,0.06)", border: `1px solid rgba(239,68,68,0.2)`, borderRadius: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: theme.danger, marginBottom: 8, textTransform: "uppercase" }}>Return for Revision</div>
+                      <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8 }}>This will revert the report to "submitted" status so the driller can make corrections and resubmit.</div>
+                      <Field label="Revision Notes">
+                        <textarea style={{ ...inputStyle, minHeight: 50, resize: "vertical" }} value={reviewNotes[r.id] || ""} onChange={e => setReviewNotes(prev => ({ ...prev, [r.id]: e.target.value }))} placeholder="What needs to be corrected..." />
+                      </Field>
+                      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+                        <Btn variant="danger" onClick={() => { if (!reviewNotes[r.id]) return alert("Please add notes explaining what needs correction."); onStatusChange(r.id, "submitted", reviewNotes[r.id]); }}><Icon name="reject" size={14} /> Return for Revision</Btn>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Rejected reports can be resubmitted */}
+                  {r.status === "rejected" && (
+                    <div style={{ marginTop: 16, padding: 14, background: "rgba(96,165,250,0.06)", border: `1px solid rgba(96,165,250,0.2)`, borderRadius: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: theme.info, marginBottom: 8, textTransform: "uppercase" }}>Resubmit This Report</div>
+                      <div style={{ fontSize: 11, color: theme.textMuted, marginBottom: 8 }}>This report was rejected. Make corrections and resubmit for review.</div>
+                      <Btn variant="primary" onClick={() => onStatusChange(r.id, "submitted", '')}><Icon name="check" size={14} /> Resubmit for Review</Btn>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

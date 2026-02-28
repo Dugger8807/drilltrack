@@ -38,7 +38,9 @@ function adaptWorkOrders(dbWorkOrders) {
     startDate: wo.scheduled_start, endDate: wo.scheduled_end,
     estimatedCost: wo.estimated_cost || 0,
     createdDate: wo.created_at?.split('T')[0],
-    lat: wo.project?.lat, lng: wo.project?.lng, location: wo.project?.location || '',
+    lat: wo.project?.lat || wo.site_lat, lng: wo.project?.lng || wo.site_lng, location: wo.project?.location || wo.site_address || '',
+    siteAddress: wo.site_address || '', siteLat: wo.site_lat, siteLng: wo.site_lng,
+    onecallNumber: wo.onecall_number || '', onecallDate: wo.onecall_date || '',
     borings: (wo.borings || []).map(b => ({
       id: b.id, boringLabel: b.boring_id_label, type: b.boring_type?.name || '',
       plannedDepth: b.planned_depth, status: b.status,

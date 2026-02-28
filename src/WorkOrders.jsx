@@ -20,11 +20,18 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     assigned_crew_id: editOrder.assigned_crew_id || '',
     scheduled_start: editOrder.scheduled_start || '',
     scheduled_end: editOrder.scheduled_end || '',
+    site_address: editOrder.site_address || '',
+    site_lat: editOrder.site_lat || '',
+    site_lng: editOrder.site_lng || '',
+    onecall_number: editOrder.onecall_number || '',
+    onecall_date: editOrder.onecall_date || '',
   } : {
     project_id: '', name: '', scope: '', priority: 'medium',
     submitted_by_type: 'internal', estimated_cost: '',
     assigned_rig_id: '', assigned_crew_id: '',
     scheduled_start: '', scheduled_end: '',
+    site_address: '', site_lat: '', site_lng: '',
+    onecall_number: '', onecall_date: '',
   });
 
   const [borings, setBorings] = useState(() => {
@@ -39,6 +46,17 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     return [{ boring_id_label: 'B-1', boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned' }];
   });
 
+  // Other field activities (monitoring wells, test pits, etc.)
+  const WO_ACTIVITY_TYPES = [
+    "Monitoring Well", "Test Pit", "Clearing", "Boring Stake Out",
+    "Concrete Coring", "Pavement Coring", "Hand Auger", "DCP Test",
+    "Percolation Test", "Plate Load Test", "Other",
+  ];
+  const [woActivities, setWoActivities] = useState(editOrder?.woActivities || []);
+  const addWoActivity = () => setWoActivities(a => [...a, { activity_type: WO_ACTIVITY_TYPES[0], quantity: 1, depth: '', size: '', method: '', notes: '' }]);
+  const updateWoActivity = (idx, field, val) => setWoActivities(a => a.map((x, i) => i === idx ? { ...x, [field]: val } : x));
+  const removeWoActivity = (idx) => setWoActivities(a => a.filter((_, i) => i !== idx));
+
   const [selectedTemplate, setSelectedTemplate] = useState('');
   const [rateSchedule, setRateSchedule] = useState(() => {
     if (editOrder?.rateSchedule?.length) {
@@ -52,6 +70,23 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     }
     return [];
   });
+
+  // Geocoding
+  const [geocoding, setGeocoding] = useState(false);
+  const geocodeAddress = async () => {
+    if (!form.site_address) return;
+    setGeocoding(true);
+    try {
+      const q = encodeURIComponent(form.site_address);
+      const resp = await fetch(`https://nominatim.openstreetmap.org/search?q=${q}&format=json&limit=1&countrycodes=us`, { headers: { 'User-Agent': 'DrillTrack/1.0' } });
+      const results = await resp.json();
+      if (results?.length > 0) {
+        update('site_lat', parseFloat(results[0].lat).toFixed(6));
+        update('site_lng', parseFloat(results[0].lon).toFixed(6));
+      }
+    } catch (e) { console.error('Geocode error:', e); }
+    setGeocoding(false);
+  };
 
   const update = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -89,6 +124,11 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
       assigned_crew_id: form.assigned_crew_id || null,
       scheduled_start: form.scheduled_start || null,
       scheduled_end: form.scheduled_end || null,
+      site_address: form.site_address || null,
+      site_lat: form.site_lat ? parseFloat(form.site_lat) : null,
+      site_lng: form.site_lng ? parseFloat(form.site_lng) : null,
+      onecall_number: form.onecall_number || null,
+      onecall_date: form.onecall_date || null,
     };
     const boringData = borings.filter(b => b.boring_id_label).map((b, i) => ({
       boring_id_label: b.boring_id_label,
@@ -151,6 +191,39 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
         <Field label="Scope of Work" required><textarea style={{ ...inputStyle, minHeight: 70, resize: "vertical" }} value={form.scope} onChange={e => update("scope", e.target.value)} /></Field>
       </div>
 
+      {/* Site Address & Coordinates */}
+      <div style={{ marginTop: 20, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
+        <h3 style={{ margin: "0 0 12px", fontSize: 14, fontWeight: 700, color: theme.accent }}>
+          <Icon name="map" size={15} color={theme.accent} /> Site Location
+        </h3>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <Field label="Site Address" wide>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input style={{ ...inputStyle, flex: 1 }} value={form.site_address} onChange={e => update("site_address", e.target.value)} placeholder="123 Main St, Mobile, AL 36602" />
+              <button onClick={geocodeAddress} disabled={geocoding || !form.site_address} style={{ padding: "6px 12px", borderRadius: 8, border: `1px solid ${theme.accent}40`, background: theme.accentDim, color: theme.accent, cursor: geocoding ? "wait" : "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", whiteSpace: "nowrap" }}>
+                {geocoding ? '...' : '📍 Geocode'}
+              </button>
+            </div>
+          </Field>
+          <Field label="Latitude" half><input style={inputStyle} value={form.site_lat} onChange={e => update("site_lat", e.target.value)} placeholder="30.6954" /></Field>
+          <Field label="Longitude" half><input style={inputStyle} value={form.site_lng} onChange={e => update("site_lng", e.target.value)} placeholder="-88.0399" /></Field>
+        </div>
+      </div>
+
+      {/* One-Call / Utility Locate */}
+      <div style={{ marginTop: 16, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
+        <h3 style={{ margin: "0 0 4px", fontSize: 14, fontWeight: 700, color: theme.accent }}>
+          <Icon name="alert" size={15} color={theme.accent} /> One-Call / Utility Locate
+        </h3>
+        <div style={{ fontSize: 11, color: theme.danger, fontWeight: 600, marginBottom: 12, padding: "6px 10px", background: "rgba(239,68,68,0.08)", borderRadius: 6, border: "1px solid rgba(239,68,68,0.2)" }}>
+          ⚠ One-Call must be completed on all projects at least 3 business days before field work begins.
+        </div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+          <Field label="One-Call Ticket Number" half><input style={inputStyle} value={form.onecall_number} onChange={e => update("onecall_number", e.target.value)} placeholder="AL-2026-00123" /></Field>
+          <Field label="One-Call Date" half><input style={inputStyle} type="date" value={form.onecall_date} onChange={e => update("onecall_date", e.target.value)} /></Field>
+        </div>
+      </div>
+
       {/* Rate Schedule */}
       <div style={{ marginTop: 24, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
@@ -208,6 +281,61 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
         </div>
         <div style={{ marginTop: 10, fontSize: 12, color: theme.textMuted }}>
           Total planned footage: <strong style={{ color: theme.accent }}>{borings.reduce((s, b) => s + (Number(b.planned_depth) || 0), 0)} ft</strong>
+        </div>
+      </div>
+
+      {/* Other Field Activities */}
+      <div style={{ marginTop: 16, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+          <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#a78bfa" }}>
+            <Icon name="clipboard" size={15} color="#a78bfa" /> Other Field Activities ({woActivities.length})
+          </h3>
+          <Btn variant="secondary" small onClick={addWoActivity}><Icon name="plus" size={12} /> Add Activity</Btn>
+        </div>
+        {woActivities.length === 0 && <div style={{ padding: 12, textAlign: "center", color: theme.textMuted, fontSize: 12 }}>No additional activities. Add monitoring wells, test pits, etc.</div>}
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {woActivities.map((a, idx) => (
+            <div key={idx} style={{ background: theme.bg, borderRadius: 8, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+              <div style={{ flex: "1 1 140px", minWidth: 120 }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Type</label>
+                <select style={{ ...selectStyle, fontSize: 12 }} value={a.activity_type} onChange={e => updateWoActivity(idx, 'activity_type', e.target.value)}>
+                  {WO_ACTIVITY_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div style={{ flex: "0 0 60px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Qty</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={a.quantity} onChange={e => updateWoActivity(idx, 'quantity', e.target.value)} />
+              </div>
+              {(a.activity_type === 'Monitoring Well' || a.activity_type === 'Test Pit') && (
+                <div style={{ flex: "0 0 80px" }}>
+                  <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Depth (ft)</label>
+                  <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={a.depth} onChange={e => updateWoActivity(idx, 'depth', e.target.value)} />
+                </div>
+              )}
+              {a.activity_type === 'Monitoring Well' && (
+                <>
+                  <div style={{ flex: "0 0 80px" }}>
+                    <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Size (in)</label>
+                    <input style={{ ...inputStyle, fontSize: 12 }} value={a.size} onChange={e => updateWoActivity(idx, 'size', e.target.value)} placeholder='2"' />
+                  </div>
+                  <div style={{ flex: "1 1 120px" }}>
+                    <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Finishing</label>
+                    <select style={{ ...selectStyle, fontSize: 12 }} value={a.method} onChange={e => updateWoActivity(idx, 'method', e.target.value)}>
+                      <option value="">Select...</option>
+                      <option value="flush_mount">Flush Mount</option>
+                      <option value="stick_up">Stick Up</option>
+                      <option value="monument">Monument</option>
+                      <option value="bollard">Bollard Protected</option>
+                    </select>
+                  </div>
+                </>
+              )}
+              <div style={{ flex: "1 1 100%", minWidth: 0 }}>
+                <input style={{ ...inputStyle, fontSize: 12 }} value={a.notes} onChange={e => updateWoActivity(idx, 'notes', e.target.value)} placeholder="Notes..." />
+              </div>
+              <Btn variant="ghost" small onClick={() => removeWoActivity(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>
+            </div>
+          ))}
         </div>
       </div>
 
