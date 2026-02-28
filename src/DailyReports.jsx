@@ -14,6 +14,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
     work_order_id: activeWOs[0]?.id || '', report_date: new Date().toISOString().split("T")[0],
     rig_id: '', crew_id: '', driller_id: '', start_time: '07:00', end_time: '17:00',
     weather_conditions: '', equipment_issues: 'None', safety_incidents: 'None', notes: '',
+    gps_lat: '', gps_lng: '',
   });
 
   const [production, setProduction] = useState([
@@ -50,7 +51,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   const updateBill = (idx, field, val) => setBilling(b => b.map((x, i) => i === idx ? { ...x, [field]: val } : x));
 
   const ACTIVITY_TYPES = [
-    "Safety Training", "Standby", "Down Time — Mechanical", "Down Time — Weather",
+    "Travel Time", "Safety Training", "Standby", "Down Time — Mechanical", "Down Time — Weather",
     "Weather Delay", "Clearing / Access", "Boring Layout", "Mobilization",
     "Demobilization", "Equipment Setup", "Decontamination", "Traffic Control",
     "Grouting / Abandonment", "Concrete Coring", "Other",
@@ -58,6 +59,72 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   const addActivity = () => setActivities(a => [...a, { activity_type: ACTIVITY_TYPES[0], hours: '', description: '' }]);
   const updateActivity = (idx, field, val) => setActivities(a => a.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const removeActivity = (idx) => setActivities(a => a.filter((_, i) => i !== idx));
+
+  // ── GPS location ──
+  const [gpsStatus, setGpsStatus] = useState(null); // 'loading' | 'success' | 'error'
+  const getGPS = () => {
+    if (!navigator.geolocation) return setGpsStatus('error');
+    setGpsStatus('loading');
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        update('gps_lat', pos.coords.latitude.toFixed(6));
+        update('gps_lng', pos.coords.longitude.toFixed(6));
+        setGpsStatus('success');
+      },
+      () => setGpsStatus('error'),
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  // ── Weather auto-detect ──
+  const [weatherLoading, setWeatherLoading] = useState(false);
+  const fetchWeather = async () => {
+    setWeatherLoading(true);
+    try {
+      // Use GPS coords if available, otherwise try project coords
+      let lat = form.gps_lat;
+      let lng = form.gps_lng;
+      if (!lat || !lng) {
+        // Try from selected WO's project
+        if (selectedWO?.lat && selectedWO?.lng) {
+          lat = selectedWO.lat;
+          lng = selectedWO.lng;
+        } else {
+          // Get current position
+          const pos = await new Promise((resolve, reject) =>
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 })
+          );
+          lat = pos.coords.latitude;
+          lng = pos.coords.longitude;
+          update('gps_lat', lat.toFixed ? lat.toFixed(6) : lat);
+          update('gps_lng', lng.toFixed ? lng.toFixed(6) : lng);
+        }
+      }
+      // Open-Meteo free API — no key needed
+      const resp = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,weather_code,wind_speed_10m,relative_humidity_2m&temperature_unit=fahrenheit&wind_speed_unit=mph`);
+      const data = await resp.json();
+      if (data?.current) {
+        const codes = { 0: 'Clear', 1: 'Mostly Clear', 2: 'Partly Cloudy', 3: 'Overcast', 45: 'Fog', 48: 'Fog', 51: 'Light Drizzle', 53: 'Drizzle', 55: 'Heavy Drizzle', 61: 'Light Rain', 63: 'Rain', 65: 'Heavy Rain', 71: 'Light Snow', 73: 'Snow', 75: 'Heavy Snow', 80: 'Rain Showers', 81: 'Rain Showers', 82: 'Heavy Showers', 95: 'Thunderstorm', 96: 'Thunderstorm + Hail', 99: 'Thunderstorm + Hail' };
+        const desc = codes[data.current.weather_code] || 'Unknown';
+        const temp = Math.round(data.current.temperature_2m);
+        const wind = Math.round(data.current.wind_speed_10m);
+        const humidity = data.current.relative_humidity_2m;
+        update('weather_conditions', `${desc}, ${temp}°F, Wind ${wind} mph, ${humidity}% humidity`);
+      }
+    } catch (err) {
+      console.error('Weather fetch error:', err);
+      update('weather_conditions', 'Unable to fetch — enter manually');
+    }
+    setWeatherLoading(false);
+  };
+
+  // Project info from selected WO
+  const projectInfo = selectedWO ? {
+    projectNumber: selectedWO.projectNumber || '',
+    projectName: selectedWO.projectName || '',
+    client: selectedWO.client || '',
+    location: selectedWO.location || '',
+  } : null;
 
   // ── Photo handling ──
   const addPhoto = (file) => {
@@ -104,6 +171,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       rig_id: form.rig_id || null,
       crew_id: form.crew_id || null,
       driller_id: form.driller_id || null,
+      gps_lat: form.gps_lat ? parseFloat(form.gps_lat) : null,
+      gps_lng: form.gps_lng ? parseFloat(form.gps_lng) : null,
       status: 'submitted',
       submitted_at: new Date().toISOString(),
     };
@@ -138,10 +207,20 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 
   return (
     <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: "20px 16px" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 20 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Daily Driller Report</h2>
         <Btn variant="ghost" onClick={onCancel}><Icon name="x" size={16} /></Btn>
       </div>
+
+      {/* Project info banner — shows when WO is selected */}
+      {projectInfo && (
+        <div style={{ background: theme.accentDim, border: `1px solid ${theme.accent}30`, borderRadius: 8, padding: "10px 14px", marginBottom: 14, display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
+          {projectInfo.projectNumber && <div><span style={{ fontSize: 9, color: theme.accent, textTransform: "uppercase", fontWeight: 700 }}>Project #</span><div style={{ fontSize: 14, fontWeight: 700, color: theme.accent }}>{projectInfo.projectNumber}</div></div>}
+          <div style={{ flex: 1, minWidth: 120 }}><span style={{ fontSize: 9, color: theme.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Project</span><div style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{projectInfo.projectName}</div></div>
+          {projectInfo.client && <div><span style={{ fontSize: 9, color: theme.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Client</span><div style={{ fontSize: 13, color: theme.text }}>{projectInfo.client}</div></div>}
+          {projectInfo.location && <div style={{ flex: "1 1 100%" }}><span style={{ fontSize: 9, color: theme.textMuted, textTransform: "uppercase", fontWeight: 700 }}>Location</span><div style={{ fontSize: 12, color: theme.textMuted }}>{projectInfo.location}</div></div>}
+        </div>
+      )}
 
       <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
         <Field label="Work Order" required half>
@@ -169,11 +248,31 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
             {staff.filter(s => s.role_title?.includes('Driller') || s.role_title?.includes('Operator')).map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name} — {s.role_title}</option>)}
           </select>
         </Field>
-        <Field label="Weather" half><input style={inputStyle} value={form.weather_conditions} onChange={e => update("weather_conditions", e.target.value)} placeholder="Clear, 58°F" /></Field>
+        <Field label="Weather" half>
+          <div style={{ display: "flex", gap: 6 }}>
+            <input style={{ ...inputStyle, flex: 1 }} value={form.weather_conditions} onChange={e => update("weather_conditions", e.target.value)} placeholder="Clear, 58°F" />
+            <button onClick={fetchWeather} disabled={weatherLoading} title="Auto-detect weather from GPS" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${theme.accent}40`, background: theme.accentDim, color: theme.accent, cursor: weatherLoading ? "wait" : "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+              {weatherLoading ? '...' : '☀ Auto'}
+            </button>
+          </div>
+        </Field>
         <Field label="Start Time" half><input style={inputStyle} type="time" value={form.start_time} onChange={e => update("start_time", e.target.value)} /></Field>
         <Field label="End Time" half><input style={inputStyle} type="time" value={form.end_time} onChange={e => update("end_time", e.target.value)} /></Field>
         <Field label="Equipment Issues"><input style={inputStyle} value={form.equipment_issues} onChange={e => update("equipment_issues", e.target.value)} /></Field>
         <Field label="Safety Incidents"><input style={inputStyle} value={form.safety_incidents} onChange={e => update("safety_incidents", e.target.value)} /></Field>
+
+        {/* GPS Location */}
+        <div style={{ flex: "1 1 100%", display: "flex", gap: 8, alignItems: "flex-end", flexWrap: "wrap" }}>
+          <Field label="GPS Coordinates" half>
+            <div style={{ display: "flex", gap: 6 }}>
+              <input style={{ ...inputStyle, flex: 1 }} value={form.gps_lat || ''} onChange={e => update("gps_lat", e.target.value)} placeholder="Latitude" />
+              <input style={{ ...inputStyle, flex: 1 }} value={form.gps_lng || ''} onChange={e => update("gps_lng", e.target.value)} placeholder="Longitude" />
+              <button onClick={getGPS} disabled={gpsStatus === 'loading'} title="Get current GPS location" style={{ padding: "6px 10px", borderRadius: 8, border: `1px solid ${gpsStatus === 'success' ? theme.success + '40' : gpsStatus === 'error' ? theme.danger + '40' : theme.info + '40'}`, background: gpsStatus === 'success' ? 'rgba(74,222,128,0.1)' : 'rgba(96,165,250,0.1)', color: gpsStatus === 'success' ? theme.success : gpsStatus === 'error' ? theme.danger : theme.info, cursor: gpsStatus === 'loading' ? "wait" : "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", whiteSpace: "nowrap", flexShrink: 0 }}>
+                {gpsStatus === 'loading' ? '...' : gpsStatus === 'success' ? '✓ Got it' : gpsStatus === 'error' ? '✗ Retry' : '📍 GPS'}
+              </button>
+            </div>
+          </Field>
+        </div>
       </div>
 
       {/* Production Entries */}
