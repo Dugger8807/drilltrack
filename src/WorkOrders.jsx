@@ -416,6 +416,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
               <div style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", padding: isMobile ? "10px 12px" : "12px 18px", cursor: "pointer", gap: 8, flexDirection: isMobile ? "column" : "row" }} onClick={() => handleExpand(wo.id)}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{wo.woNumber}</span>
+                  {wo.projectNumber && <span style={{ fontSize: 11, fontWeight: 600, color: theme.info, fontFamily: "monospace" }}>{wo.projectNumber}</span>}
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: isMobile ? "normal" : "nowrap" }}>{isMobile ? wo.name : wo.projectName}</span>
                   {!isMobile && <span style={{ fontSize: 12, color: theme.textMuted }}>{wo.client}</span>}
                   <Badge status={wo.status} />
