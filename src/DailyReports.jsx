@@ -443,8 +443,14 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile, canManage }) {
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
+  const [projectFilter, setProjectFilter] = useState("all");
+  const [drillerFilter, setDrillerFilter] = useState("all");
   const [reviewNotes, setReviewNotes] = useState({});
   const [photos, setPhotos] = useState({});
+
+  // Build unique project and driller lists from reports
+  const projects = [...new Map(reports.filter(r => r.projectNumber || r.projectName).map(r => [r.projectNumber || r.projectName, { number: r.projectNumber, name: r.projectName }])).values()];
+  const drillers = [...new Map(reports.filter(r => r.driller).map(r => [r.drillerId || r.driller, { id: r.drillerId, name: r.driller }])).values()];
 
   const fetchPhotos = async (drId) => {
     const { data } = await supabase.from('daily_report_photos').select('*').eq('daily_report_id', drId).order('created_at', { ascending: false });
@@ -456,16 +462,35 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
     setExpanded(drId);
     if (!photos[drId]) fetchPhotos(drId);
   };
-  const filtered = filter === "all" ? reports : reports.filter(r => r.status === filter);
+
+  let filtered = filter === "all" ? reports : reports.filter(r => r.status === filter);
+  if (projectFilter !== "all") filtered = filtered.filter(r => (r.projectNumber || r.projectName) === projectFilter);
+  if (drillerFilter !== "all") filtered = filtered.filter(r => (r.drillerId || r.driller) === drillerFilter);
 
   return (
     <div>
-      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
+      {/* Status filter pills */}
+      <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: isMobile ? "nowrap" : "wrap", overflowX: isMobile ? "auto" : "visible", WebkitOverflowScrolling: "touch", paddingBottom: 4 }}>
         {["all", "draft", "submitted", "approved", "rejected"].map(f => (
           <button key={f} onClick={() => setFilter(f)} style={{ padding: "5px 14px", borderRadius: 20, border: `1px solid ${filter === f ? theme.accent : theme.border}`, background: filter === f ? theme.accentDim : "transparent", color: filter === f ? theme.accent : theme.textMuted, fontSize: 12, fontWeight: 500, cursor: "pointer", fontFamily: "inherit", textTransform: "capitalize" }}>
             {f === "all" ? "All" : f} ({f === "all" ? reports.length : reports.filter(r => r.status === f).length})
           </button>
         ))}
+      </div>
+
+      {/* Project & Driller filters */}
+      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+        <select style={{ ...selectStyle, fontSize: 12, maxWidth: 250 }} value={projectFilter} onChange={e => setProjectFilter(e.target.value)}>
+          <option value="all">All Projects</option>
+          {projects.map((p, i) => <option key={i} value={p.number || p.name}>{p.number ? `${p.number} — ` : ''}{p.name}</option>)}
+        </select>
+        <select style={{ ...selectStyle, fontSize: 12, maxWidth: 200 }} value={drillerFilter} onChange={e => setDrillerFilter(e.target.value)}>
+          <option value="all">All Drillers</option>
+          {drillers.map((d, i) => <option key={i} value={d.id || d.name}>{d.name}</option>)}
+        </select>
+        {(projectFilter !== "all" || drillerFilter !== "all") && (
+          <button onClick={() => { setProjectFilter("all"); setDrillerFilter("all"); }} style={{ padding: "4px 12px", borderRadius: 6, border: `1px solid ${theme.danger}40`, background: "transparent", color: theme.danger, fontSize: 11, fontWeight: 600, cursor: "pointer", fontFamily: "inherit" }}>✕ Clear Filters</button>
+        )}
       </div>
 
       {filtered.length === 0 && <div style={{ textAlign: "center", padding: 40, color: theme.textMuted }}>No daily reports match this filter.</div>}
@@ -481,6 +506,7 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
               <div onClick={() => handleExpand(r.id)} style={{ display: "flex", alignItems: isMobile ? "flex-start" : "center", justifyContent: "space-between", padding: isMobile ? "10px 12px" : "12px 18px", cursor: "pointer", gap: 8, flexDirection: isMobile ? "column" : "row" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flex: 1, minWidth: 0, flexWrap: "wrap" }}>
                   <span style={{ fontSize: 12, fontWeight: 700, color: theme.accent, fontFamily: "monospace" }}>{r.reportNumber}</span>
+                  {r.projectNumber && <span style={{ fontSize: 11, fontWeight: 600, color: theme.info, fontFamily: "monospace" }}>{r.projectNumber}</span>}
                   <span style={{ fontSize: 13, fontWeight: 600, color: theme.text }}>{isMobile ? r.workOrderName || r.projectName : r.projectName || r.workOrderName}</span>
                   <span style={{ fontSize: 12, color: theme.textMuted }}>{r.date}</span>
                   {!isMobile && <span style={{ fontSize: 12, color: theme.textMuted }}>{r.driller}</span>}
@@ -570,7 +596,7 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
 
                   <div style={{ marginTop: 12 }}>
                     <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r)}><Icon name="report" size={12} /> Download PDF</Btn>
-                  </div>}
+                  </div>
 
                   {canManage && r.status === "submitted" && (
                     <div style={{ marginTop: 16, padding: 14, background: "rgba(244,165,58,0.06)", border: `1px solid ${theme.accent}30`, borderRadius: 8 }}>

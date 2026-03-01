@@ -66,8 +66,10 @@ function adaptDailyReports(dbReports) {
   return dbReports.map(dr => ({
     id: dr.id, reportNumber: dr.report_number, workOrderId: dr.work_order_id,
     workOrderName: dr.work_order?.name || '', projectName: dr.work_order?.project?.name || '',
+    projectNumber: dr.work_order?.project?.project_number || '',
     date: dr.report_date, rigName: dr.rig?.name || '', rigType: dr.rig?.rig_type || '',
     crewName: dr.crew?.name || '',
+    drillerId: dr.driller_id || '',
     driller: dr.driller ? `${dr.driller.first_name} ${dr.driller.last_name}` : '',
     startTime: dr.start_time, endTime: dr.end_time,
     weatherConditions: dr.weather_conditions || '', equipmentIssues: dr.equipment_issues || '',
