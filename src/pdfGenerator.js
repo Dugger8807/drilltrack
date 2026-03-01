@@ -134,7 +134,7 @@ export async function generateDailyReportPDF(report) {
   // ── Report info ──
   y = sectionTitle(doc, y, 'Report Information');
   y = infoRow2(doc, y, 'Report #', report.reportNumber, 'Date', report.date);
-  y = infoRow2(doc, y, 'Work Order', report.workOrderName, 'Project', report.projectName);
+  y = infoRow2(doc, y, 'Work Order', report.workOrderName, 'Project', `${report.projectNumber ? report.projectNumber + ' — ' : ''}${report.projectName}`);
   y = infoRow2(doc, y, 'Rig', `${report.rigName} ${report.rigType ? `(${report.rigType})` : ''}`, 'Crew', report.crewName);
   y = infoRow2(doc, y, 'Driller', report.driller, 'Hours', `${report.startTime || ''} – ${report.endTime || ''}`);
   y = infoRow2(doc, y, 'Weather', report.weatherConditions, 'Status', (report.status || '').toUpperCase());

@@ -206,13 +206,14 @@ export function useDailyReports() {
     setLoading(true);
     const drs = await fetchTable('daily_reports', {
       select: `*,
-        work_order:work_orders(wo_number, name, project:projects(name, project_number)),
+        work_order:work_orders(wo_number, name, project_id, project:projects(name, project_number, client:clients(company_name))),
         rig:rigs(name, rig_type),
         crew:crews(name),
         driller:staff_members(first_name, last_name)`,
       order: 'report_date',
       asc: false,
     });
+    if (drs.length > 0) console.log('DR[0] work_order:', JSON.stringify(drs[0].work_order));
 
     const drIds = drs.map(d => d.id);
     let production = [];
