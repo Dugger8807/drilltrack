@@ -159,7 +159,16 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
       estimated_quantity: Number(r.estimated_quantity) || null,
       sort_order: i,
     }));
-    onSubmit(woData, boringData, rateData);
+    const actData = woActivities.filter(a => a.activity_type).map((a, i) => ({
+      activity_type: a.activity_type,
+      quantity: Number(a.quantity) || 1,
+      depth: a.depth ? Number(a.depth) : null,
+      size: a.size || null,
+      method: a.method || null,
+      notes: a.notes || '',
+      sort_order: i,
+    }));
+    onSubmit(woData, boringData, rateData, actData);
   };
 
   return (

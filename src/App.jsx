@@ -52,6 +52,10 @@ function adaptWorkOrders(dbWorkOrders) {
       id: r.id, unitName: r.billing_unit?.name || '', rate: r.rate,
       unitLabel: r.unit_label, estimatedQty: r.estimated_quantity,
     })),
+    woActivities: (wo.woActivities || []).map(a => ({
+      id: a.id, activity_type: a.activity_type, quantity: a.quantity,
+      depth: a.depth, size: a.size, method: a.method, notes: a.notes || '',
+    })),
   }));
 }
 
@@ -124,15 +128,15 @@ export default function App() {
 
   const nav = (id) => { setPage(id); setShowWOForm(false); setShowDRForm(false); setEditingWO(null); setEditingDR(null); };
 
-  const handleCreateWO = async (woData, borings, rateSchedule) => {
+  const handleCreateWO = async (woData, borings, rateSchedule, activities) => {
     woData.org_id = ORG_ID; woData.status = 'pending';
     if (!woData.requested_by) woData.requested_by = auth.fullName;
-    const result = await createWorkOrder(woData, borings, rateSchedule);
+    const result = await createWorkOrder(woData, borings, rateSchedule, activities);
     if (result) { setShowWOForm(false); setEditingWO(null); }
   };
 
-  const handleEditWO = async (woData, borings, rateSchedule) => {
-    const result = await updateWorkOrder(editingWO.id, woData, borings, rateSchedule);
+  const handleEditWO = async (woData, borings, rateSchedule, activities) => {
+    const result = await updateWorkOrder(editingWO.id, woData, borings, rateSchedule, activities);
     if (result) { setShowWOForm(false); setEditingWO(null); }
   };
 

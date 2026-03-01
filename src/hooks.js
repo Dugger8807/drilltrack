@@ -100,6 +100,7 @@ export function useWorkOrders() {
     const woIds = wos.map(w => w.id);
     let borings = [];
     let rates = [];
+    let woActs = [];
     if (woIds.length) {
       borings = await fetchTable('wo_borings', {
         select: '*, boring_type:boring_types(name)',
@@ -109,12 +110,17 @@ export function useWorkOrders() {
         select: '*, billing_unit:billing_unit_types(name, default_unit)',
         order: 'sort_order',
       });
+      woActs = await fetchTable('wo_activities', {
+        select: '*',
+        order: 'sort_order',
+      });
     }
 
     const enriched = wos.map(wo => ({
       ...wo,
       borings: borings.filter(b => b.work_order_id === wo.id),
       rateSchedule: rates.filter(r => r.work_order_id === wo.id),
+      woActivities: woActs.filter(a => a.work_order_id === wo.id),
     }));
 
     setWorkOrders(enriched);
@@ -123,7 +129,7 @@ export function useWorkOrders() {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const createWorkOrder = async (wo, borings = [], rateSchedule = []) => {
+  const createWorkOrder = async (wo, borings = [], rateSchedule = [], activities = []) => {
     const { data, error } = await supabase.from('work_orders').insert(wo).select().single();
     if (error) { console.error('Error creating WO:', error); return null; }
 
@@ -135,12 +141,16 @@ export function useWorkOrders() {
       const rateRows = rateSchedule.map(r => ({ ...r, work_order_id: data.id }));
       await supabase.from('wo_rate_schedule').insert(rateRows);
     }
+    if (activities.length) {
+      const actRows = activities.map(a => ({ ...a, work_order_id: data.id }));
+      await supabase.from('wo_activities').insert(actRows);
+    }
 
     await refresh();
     return data;
   };
 
-  const updateWorkOrder = async (id, updates, borings, rateSchedule) => {
+  const updateWorkOrder = async (id, updates, borings, rateSchedule, activities) => {
     const { error } = await supabase.from('work_orders').update(updates).eq('id', id);
     if (error) { console.error('Error updating WO:', error); return false; }
     // Replace borings if provided
@@ -157,6 +167,14 @@ export function useWorkOrders() {
       if (rateSchedule.length) {
         const rows = rateSchedule.map(r => ({ ...r, work_order_id: id }));
         await supabase.from('wo_rate_schedule').insert(rows);
+      }
+    }
+    // Replace activities if provided
+    if (activities) {
+      await supabase.from('wo_activities').delete().eq('work_order_id', id);
+      if (activities.length) {
+        const rows = activities.map(a => ({ ...a, work_order_id: id }));
+        await supabase.from('wo_activities').insert(rows);
       }
     }
     await refresh();
