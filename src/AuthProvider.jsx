@@ -33,7 +33,10 @@ export function AuthProvider({ children }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const [branding, setBranding] = useState(null);
+
   const loadUserProfile = async (authId) => {
+    console.log('AUTH: Loading profile for auth_user_id:', authId);
     const { data, error: err } = await supabase
       .from('staff_members')
       .select('*')
@@ -45,8 +48,19 @@ export function AuthProvider({ children }) {
       setUser(null);
       setError('Your account is not linked to a staff profile. Contact your admin.');
     } else {
+      console.log('AUTH: Staff profile loaded — org_id:', data.org_id, 'name:', data.first_name, data.last_name);
       setUser(data);
       setError(null);
+      // Load org branding
+      const { data: orgData, error: orgErr } = await supabase
+        .from('organizations')
+        .select('name, slug, branding')
+        .eq('id', data.org_id)
+        .single();
+      console.log('AUTH: Org loaded:', orgData?.name, 'branding:', !!orgData?.branding, 'error:', orgErr);
+      if (orgData?.branding) {
+        setBranding({ ...orgData.branding, orgName: orgData.name, orgSlug: orgData.slug });
+      }
     }
     setLoading(false);
   };
@@ -82,6 +96,7 @@ export function AuthProvider({ children }) {
     orgId: user?.org_id,
     staffId: user?.id,
     fullName: user ? `${user.first_name} ${user.last_name}` : '',
+    branding,
   };
 
   // Loading state
