@@ -272,13 +272,13 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
         <Field label="Assigned Rig" half>
           <select style={selectStyle} value={form.assigned_rig_id} onChange={e => update("assigned_rig_id", e.target.value)}>
             <option value="">None</option>
-            {rigs.filter(r => r.status === 'available').map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
+            {rigs.filter(r => r.status === 'available' && r.is_active !== false).map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
           </select>
         </Field>
         <Field label="Assigned Crew" half>
           <select style={selectStyle} value={form.assigned_crew_id} onChange={e => update("assigned_crew_id", e.target.value)}>
             <option value="">None</option>
-            {crews.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {crews.filter(c => c.is_active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Field>
 
@@ -576,13 +576,13 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                         <Field label="Rig" half>
                           <select style={{ ...selectStyle, fontSize: 12 }} value={qe.assigned_rig_id ?? ''} onChange={e => setQe(q => ({ ...q, assigned_rig_id: e.target.value }))}>
                             <option value="">None</option>
-                            {(orgData?.rigs || []).map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
+                            {(orgData?.rigs || []).filter(r => r.is_active !== false).map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
                           </select>
                         </Field>
                         <Field label="Crew" half>
                           <select style={{ ...selectStyle, fontSize: 12 }} value={qe.assigned_crew_id ?? ''} onChange={e => setQe(q => ({ ...q, assigned_crew_id: e.target.value }))}>
                             <option value="">None</option>
-                            {(orgData?.crews || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                            {(orgData?.crews || []).filter(c => c.is_active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                           </select>
                         </Field>
                         <Field label="Scheduled Start" half><input style={{ ...inputStyle, fontSize: 12 }} type="date" value={qe.scheduled_start ?? ''} onChange={e => setQe(q => ({ ...q, scheduled_start: e.target.value }))} /></Field>

@@ -4,8 +4,8 @@ import MapView from "./MapView.jsx";
 
 export default function Dashboard({ workOrders, dailyReports, dbRigs, dbCrews, isMobile }) {
   // Use DB rigs/crews if provided, fall back to constants
-  const rigsToUse = dbRigs && dbRigs.length > 0 ? dbRigs.map(r => ({ ...r, gps: { lat: r.last_known_lat || 30.69, lng: r.last_known_lng || -88.04 } })) : RIGS;
-  const crewsToUse = dbCrews && dbCrews.length > 0 ? dbCrews.map(c => ({ ...c, lead: c.lead ? `${c.lead.first_name} ${c.lead.last_name}` : 'Unassigned', members: 2 })) : CREWS;
+  const rigsToUse = dbRigs && dbRigs.length > 0 ? dbRigs.filter(r => r.is_active !== false).map(r => ({ ...r, gps: { lat: r.last_known_lat || 30.69, lng: r.last_known_lng || -88.04 } })) : RIGS;
+  const crewsToUse = dbCrews && dbCrews.length > 0 ? dbCrews.filter(c => c.is_active !== false).map(c => ({ ...c, lead: c.lead ? `${c.lead.first_name} ${c.lead.last_name}` : 'Unassigned', members: 2 })) : CREWS;
   const activeJobs = workOrders.filter((w) => w.status === "in_progress").length;
   const scheduled = workOrders.filter((w) => w.status === "scheduled").length;
   const pending = workOrders.filter((w) => w.status === "pending").length;

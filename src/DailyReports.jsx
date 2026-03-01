@@ -233,19 +233,19 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
         <Field label="Rig" half>
           <select style={selectStyle} value={form.rig_id} onChange={e => update("rig_id", e.target.value)}>
             <option value="">Select rig...</option>
-            {rigs.map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
+            {rigs.filter(r => r.is_active !== false).map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
           </select>
         </Field>
         <Field label="Crew" half>
           <select style={selectStyle} value={form.crew_id} onChange={e => update("crew_id", e.target.value)}>
             <option value="">Select crew...</option>
-            {crews.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            {crews.filter(c => c.is_active !== false).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Field>
         <Field label="Driller" half>
           <select style={selectStyle} value={form.driller_id} onChange={e => update("driller_id", e.target.value)}>
             <option value="">Select driller...</option>
-            {staff.filter(s => s.role_title?.includes('Driller') || s.role_title?.includes('Operator')).map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name} — {s.role_title}</option>)}
+            {staff.filter(s => s.is_active !== false && (s.role_title?.includes('Driller') || s.role_title?.includes('Operator'))).map(s => <option key={s.id} value={s.id}>{s.first_name} {s.last_name} — {s.role_title}</option>)}
           </select>
         </Field>
         <Field label="Weather" half>
