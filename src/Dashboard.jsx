@@ -54,7 +54,7 @@ export default function Dashboard({ workOrders, dailyReports, dbRigs, dbCrews, i
             return (
               <div key={rig.id} style={{ background: theme.surface2, borderRadius: 8, padding: "12px 14px", borderLeft: `3px solid ${sc}` }}>
                 <div style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{rig.name}</div>
-                <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{rig.type}</div>
+                <div style={{ fontSize: 11, color: theme.textMuted, marginTop: 2 }}>{rig.rig_type || rig.type || ''}</div>
                 <div style={{ fontSize: 11, color: sc, marginTop: 4, fontWeight: 600 }}>{wo ? wo.projectName.slice(0, 22) : rig.status === "maintenance" ? "⚠ Maintenance" : "✓ Available"}</div>
               </div>
             );
