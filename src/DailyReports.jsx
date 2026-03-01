@@ -18,7 +18,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   });
 
   const [production, setProduction] = useState([
-    { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', description: '' }
+    { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', bore_start_time: '', bore_duration: '', description: '' }
   ]);
 
   const [billing, setBilling] = useState([]);
@@ -47,7 +47,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
     }
   }, [form.work_order_id]);
 
-  const addProd = () => setProduction(p => [...p, { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', description: '' }]);
+  const addProd = () => setProduction(p => [...p, { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', bore_start_time: '', bore_duration: '', description: '' }]);
   const updateProd = (idx, field, val) => setProduction(p => p.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const removeProd = (idx) => setProduction(p => p.filter((_, i) => i !== idx));
   const updateBill = (idx, field, val) => setBilling(b => b.map((x, i) => i === idx ? { ...x, [field]: val } : x));
@@ -185,6 +185,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       end_depth: Number(p.end_depth) || 0,
       num_tubes: p.num_tubes ? Number(p.num_tubes) : null,
       grout_amount: p.grout_amount ? Number(p.grout_amount) : null,
+      bore_start_time: p.bore_start_time || null,
+      bore_duration: p.bore_duration ? Number(p.bore_duration) : null,
       description: p.description,
       sort_order: i,
     }));
@@ -209,6 +211,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   const totalFootage = production.reduce((s, p) => s + Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0)), 0);
   const totalTubes = production.reduce((s, p) => s + (Number(p.num_tubes) || 0), 0);
   const totalGrout = production.reduce((s, p) => s + (Number(p.grout_amount) || 0), 0);
+  const totalBoreHrs = production.reduce((s, p) => s + (Number(p.bore_duration) || 0), 0);
   const totalBilling = billing.reduce((s, b) => s + (Number(b.quantity) || 0) * (Number(b.rate) || 0), 0);
 
   return (
@@ -285,7 +288,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       <div style={{ marginTop: 20, background: theme.surface2, borderRadius: 10, padding: "14px 12px", border: `1px solid ${theme.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: theme.accent }}>
-            <Icon name="drill" size={15} color={theme.accent} /> Production ({production.length} • {totalFootage} ft{totalTubes > 0 ? ` • ${totalTubes} tubes` : ''}{totalGrout > 0 ? ` • ${totalGrout} gal grout` : ''})
+            <Icon name="drill" size={15} color={theme.accent} /> Production ({production.length} • {totalFootage} ft{totalTubes > 0 ? ` • ${totalTubes} tubes` : ''}{totalGrout > 0 ? ` • ${totalGrout} gal grout` : ''}{totalBoreHrs > 0 ? ` • ${totalBoreHrs} hrs` : ''})
           </h3>
           <Btn variant="secondary" small onClick={addProd}><Icon name="plus" size={12} /> Add</Btn>
         </div>
@@ -323,6 +326,14 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
               <div style={{ flex: "0 0 75px" }}>
                 <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Grout (gal)</label>
                 <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.grout_amount || ''} onChange={e => updateProd(idx, 'grout_amount', e.target.value)} placeholder="0" />
+              </div>
+              <div style={{ flex: "0 0 85px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Start Time</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="time" value={p.bore_start_time || ''} onChange={e => updateProd(idx, 'bore_start_time', e.target.value)} />
+              </div>
+              <div style={{ flex: "0 0 70px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Hrs</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="number" step="0.25" value={p.bore_duration || ''} onChange={e => updateProd(idx, 'bore_duration', e.target.value)} placeholder="0" />
               </div>
               <div style={{ flex: "1 1 100%", minWidth: 0 }}>
                 <input style={{ ...inputStyle, fontSize: 12 }} value={p.description} onChange={e => updateProd(idx, 'description', e.target.value)} placeholder="Notes..." />
