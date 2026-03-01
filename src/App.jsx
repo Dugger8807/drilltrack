@@ -46,7 +46,10 @@ function adaptWorkOrders(dbWorkOrders) {
     onecallNumber: wo.onecall_number || '', onecallDate: wo.onecall_date || '',
     borings: (wo.borings || []).map(b => ({
       id: b.id, boringLabel: b.boring_id_label, type: b.boring_type?.name || '',
+      boring_type_id: b.boring_type_id,
       plannedDepth: b.planned_depth, status: b.status,
+      samplingInterval: b.sampling_interval || 'standard',
+      numTubes: b.num_tubes, boringLat: b.boring_lat, boringLng: b.boring_lng,
     })),
     rateSchedule: (wo.rateSchedule || []).map(r => ({
       id: r.id, unitName: r.billing_unit?.name || '', rate: r.rate,

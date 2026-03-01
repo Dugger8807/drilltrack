@@ -328,29 +328,38 @@ export async function generateWorkOrderPDF(wo) {
     doc.autoTable({
       startY: y,
       margin: { left: 14, right: 14 },
-      headStyles: { fillColor: C.headerBg, textColor: C.white, fontSize: 8, fontStyle: 'bold', cellPadding: 3 },
-      bodyStyles: { fontSize: 8, textColor: C.text, cellPadding: 2.5 },
+      headStyles: { fillColor: C.headerBg, textColor: C.white, fontSize: 7, fontStyle: 'bold', cellPadding: 3 },
+      bodyStyles: { fontSize: 7, textColor: C.text, cellPadding: 2.5 },
       alternateRowStyles: { fillColor: [248, 248, 252] },
       columns: [
         { header: 'Boring ID', dataKey: 'id' },
         { header: 'Type', dataKey: 'type' },
-        { header: 'Planned Depth (ft)', dataKey: 'depth' },
+        { header: 'Depth (ft)', dataKey: 'depth' },
+        { header: 'Sampling', dataKey: 'sampling' },
+        { header: '# Tubes', dataKey: 'tubes' },
+        { header: 'Lat', dataKey: 'lat' },
+        { header: 'Lng', dataKey: 'lng' },
         { header: 'Status', dataKey: 'status' },
       ],
       body: wo.borings.map(b => ({
         id: b.boringLabel,
         type: b.type,
         depth: b.plannedDepth,
+        sampling: (b.samplingInterval || 'standard').charAt(0).toUpperCase() + (b.samplingInterval || 'standard').slice(1),
+        tubes: b.numTubes || '—',
+        lat: b.boringLat ? Number(b.boringLat).toFixed(5) : '—',
+        lng: b.boringLng ? Number(b.boringLng).toFixed(5) : '—',
         status: (b.status || '').replace('_', ' ').toUpperCase(),
       })),
     });
 
     y = doc.lastAutoTable.finalY + 4;
     const totalDepth = wo.borings.reduce((s, b) => s + (Number(b.plannedDepth) || 0), 0);
+    const totalTubes = wo.borings.reduce((s, b) => s + (Number(b.numTubes) || 0), 0);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.setTextColor(...C.accent);
-    doc.text(`Total Planned Footage: ${totalDepth} ft`, w - 14, y, { align: 'right' });
+    doc.text(`Total: ${totalDepth} ft | ${totalTubes} tubes`, w - 14, y, { align: 'right' });
     y += 8;
   }
 

@@ -4,6 +4,69 @@ import { Icon, Badge, Priority, Btn, Field } from "./ui.jsx";
 import { downloadWorkOrderPDF } from "./pdfGenerator.js";
 import { WOAttachments } from "./FileUpload.jsx";
 import { supabase } from "./supabaseClient.js";
+import * as XLSX from "xlsx";
+
+// ─── Boring Schedule Excel Helpers ──────────────────────────────────
+const BORING_TEMPLATE_COLS = ['Boring ID', 'Type', 'Depth (ft)', 'Sampling', '# Tubes', 'Latitude', 'Longitude'];
+
+function downloadBoringTemplate() {
+  const ws = XLSX.utils.aoa_to_sheet([
+    BORING_TEMPLATE_COLS,
+    ['B-1', 'SPT Boring', 50, 'standard', 3, '', ''],
+    ['B-2', 'SPT Boring', 30, 'continuous', 5, '', ''],
+    ['MW-1', 'Monitoring Well', 40, 'standard', '', '', ''],
+  ]);
+  // Set column widths
+  ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 14 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Boring Schedule');
+  XLSX.writeFile(wb, 'boring-schedule-template.xlsx');
+}
+
+function exportBoringsToExcel(borings, boringTypes) {
+  const rows = borings.map(b => {
+    const typeName = boringTypes.find(t => t.id === b.boring_type_id)?.name || b.boring_type_id || '';
+    return [b.boring_id_label, typeName, b.planned_depth || '', b.sampling_interval || 'standard', b.num_tubes || '', b.boring_lat || '', b.boring_lng || ''];
+  });
+  const ws = XLSX.utils.aoa_to_sheet([BORING_TEMPLATE_COLS, ...rows]);
+  ws['!cols'] = [{ wch: 12 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 10 }, { wch: 14 }, { wch: 14 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Boring Schedule');
+  XLSX.writeFile(wb, 'boring-schedule-export.xlsx');
+}
+
+function parseBoringExcel(file, boringTypes) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target.result, { type: 'array' });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { defval: '' });
+        const borings = rows.map(row => {
+          // Match type name to ID
+          const typeName = (row['Type'] || row['type'] || '').toString().toLowerCase().trim();
+          const matchedType = boringTypes.find(t => t.name.toLowerCase().trim() === typeName);
+          return {
+            boring_id_label: (row['Boring ID'] || row['boring_id'] || row['Boring_ID'] || row['ID'] || '').toString(),
+            boring_type_id: matchedType?.id || boringTypes[0]?.id || '',
+            planned_depth: Number(row['Depth (ft)'] || row['depth'] || row['Depth'] || 0) || '',
+            status: 'planned',
+            sampling_interval: (row['Sampling'] || row['sampling'] || row['Sampling Interval'] || 'standard').toString().toLowerCase().includes('contin') ? 'continuous' : 'standard',
+            num_tubes: row['# Tubes'] || row['tubes'] || row['Tubes'] || row['num_tubes'] || '',
+            boring_lat: row['Latitude'] || row['latitude'] || row['Lat'] || row['lat'] || '',
+            boring_lng: row['Longitude'] || row['longitude'] || row['Lng'] || row['lng'] || row['Long'] || row['long'] || '',
+          };
+        }).filter(b => b.boring_id_label);
+        resolve(borings);
+      } catch (err) {
+        reject(err);
+      }
+    };
+    reader.onerror = reject;
+    reader.readAsArrayBuffer(file);
+  });
+}
 
 // ─── Work Order Form (writes to Supabase) ────────────────────────────
 export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
@@ -50,9 +113,13 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
         boring_type_id: b.boring_type_id || boringTypes[0]?.id || '',
         planned_depth: b.planned_depth || '',
         status: b.status || 'planned',
+        sampling_interval: b.sampling_interval || 'standard',
+        num_tubes: b.num_tubes || '',
+        boring_lat: b.boring_lat || '',
+        boring_lng: b.boring_lng || '',
       }));
     }
-    return [{ boring_id_label: 'B-1', boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned' }];
+    return [{ boring_id_label: 'B-1', boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned', sampling_interval: 'standard', num_tubes: '', boring_lat: '', boring_lng: '' }];
   });
 
   // Other field activities (monitoring wells, test pits, etc.)
@@ -101,7 +168,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 
   const addBoring = () => {
     const n = borings.length + 1;
-    setBorings(b => [...b, { boring_id_label: `B-${n}`, boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned' }]);
+    setBorings(b => [...b, { boring_id_label: `B-${n}`, boring_type_id: boringTypes[0]?.id || '', planned_depth: '', status: 'planned', sampling_interval: 'standard', num_tubes: '', boring_lat: '', boring_lng: '' }]);
   };
   const updateBoring = (idx, field, val) => setBorings(b => b.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const removeBoring = (idx) => setBorings(b => b.filter((_, i) => i !== idx));
@@ -150,6 +217,10 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
       boring_type_id: b.boring_type_id || null,
       planned_depth: Number(b.planned_depth) || 0,
       status: b.status || 'planned',
+      sampling_interval: b.sampling_interval || 'standard',
+      num_tubes: b.num_tubes ? Number(b.num_tubes) : null,
+      boring_lat: b.boring_lat ? parseFloat(b.boring_lat) : null,
+      boring_lng: b.boring_lng ? parseFloat(b.boring_lng) : null,
       sort_order: i,
     }));
     const rateData = rateSchedule.filter(r => r.billing_unit_type_id).map((r, i) => ({
@@ -299,26 +370,69 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 
       {/* Boring Schedule */}
       <div style={{ marginTop: 20, background: theme.surface2, borderRadius: 10, padding: 18, border: `1px solid ${theme.border}` }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: theme.accent }}>
             <Icon name="drill" size={15} color={theme.accent} /> Boring Schedule ({borings.length})
           </h3>
-          <Btn variant="secondary" small onClick={addBoring}><Icon name="plus" size={12} /> Add Boring</Btn>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+            <Btn variant="ghost" small onClick={downloadBoringTemplate} title="Download blank Excel template">📥 Template</Btn>
+            <Btn variant="ghost" small onClick={() => exportBoringsToExcel(borings, boringTypes)} title="Export current borings to Excel">📤 Export</Btn>
+            <label style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "4px 10px", borderRadius: 6, border: `1px solid ${theme.info}40`, background: "rgba(96,165,250,0.08)", color: theme.info, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              📂 Import
+              <input type="file" accept=".xlsx,.xls,.csv" style={{ display: "none" }} onChange={async (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                try {
+                  const imported = await parseBoringExcel(file, boringTypes);
+                  if (imported.length) {
+                    setBorings(imported);
+                  } else {
+                    alert('No borings found in file. Check that the first row has headers.');
+                  }
+                } catch (err) {
+                  alert('Error reading file: ' + err.message);
+                }
+                e.target.value = '';
+              }} />
+            </label>
+            <Btn variant="secondary" small onClick={addBoring}><Icon name="plus" size={12} /> Add Boring</Btn>
+          </div>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+
+        {/* Column headers */}
+        <div style={{ display: "flex", gap: 6, padding: "4px 10px", fontSize: 9, color: theme.textMuted, textTransform: "uppercase", fontWeight: 700 }}>
+          <span style={{ width: 70 }}>ID</span>
+          <span style={{ flex: 1 }}>Type</span>
+          <span style={{ width: 70 }}>Depth</span>
+          <span style={{ width: 90 }}>Sampling</span>
+          <span style={{ width: 55 }}>Tubes</span>
+          <span style={{ width: 90 }}>Latitude</span>
+          <span style={{ width: 90 }}>Longitude</span>
+          <span style={{ width: 28 }}></span>
+        </div>
+
+        <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
           {borings.map((b, idx) => (
-            <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", background: theme.bg, padding: "8px 10px", borderRadius: 6 }}>
-              <input style={{ ...inputStyle, width: 80, fontSize: 12 }} value={b.boring_id_label} onChange={e => updateBoring(idx, 'boring_id_label', e.target.value)} placeholder="B-1" />
-              <select style={{ ...selectStyle, flex: 1, fontSize: 12 }} value={b.boring_type_id} onChange={e => updateBoring(idx, 'boring_type_id', e.target.value)}>
+            <div key={idx} style={{ display: "flex", gap: 6, alignItems: "center", background: theme.bg, padding: "6px 10px", borderRadius: 6, flexWrap: "wrap" }}>
+              <input style={{ ...inputStyle, width: 70, fontSize: 12 }} value={b.boring_id_label} onChange={e => updateBoring(idx, 'boring_id_label', e.target.value)} placeholder="B-1" />
+              <select style={{ ...selectStyle, flex: 1, fontSize: 12, minWidth: 100 }} value={b.boring_type_id} onChange={e => updateBoring(idx, 'boring_type_id', e.target.value)}>
                 {boringTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
               </select>
-              <input style={{ ...inputStyle, width: 90, fontSize: 12 }} type="number" value={b.planned_depth} onChange={e => updateBoring(idx, 'planned_depth', e.target.value)} placeholder="Depth (ft)" />
+              <input style={{ ...inputStyle, width: 70, fontSize: 12 }} type="number" value={b.planned_depth} onChange={e => updateBoring(idx, 'planned_depth', e.target.value)} placeholder="ft" />
+              <select style={{ ...selectStyle, width: 90, fontSize: 11 }} value={b.sampling_interval || 'standard'} onChange={e => updateBoring(idx, 'sampling_interval', e.target.value)}>
+                <option value="standard">Standard</option>
+                <option value="continuous">Continuous</option>
+              </select>
+              <input style={{ ...inputStyle, width: 55, fontSize: 12 }} type="number" value={b.num_tubes || ''} onChange={e => updateBoring(idx, 'num_tubes', e.target.value)} placeholder="#" />
+              <input style={{ ...inputStyle, width: 90, fontSize: 11 }} value={b.boring_lat || ''} onChange={e => updateBoring(idx, 'boring_lat', e.target.value)} placeholder="Lat" />
+              <input style={{ ...inputStyle, width: 90, fontSize: 11 }} value={b.boring_lng || ''} onChange={e => updateBoring(idx, 'boring_lng', e.target.value)} placeholder="Lng" />
               <Btn variant="ghost" small onClick={() => removeBoring(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 10, fontSize: 12, color: theme.textMuted }}>
-          Total planned footage: <strong style={{ color: theme.accent }}>{borings.reduce((s, b) => s + (Number(b.planned_depth) || 0), 0)} ft</strong>
+        <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", fontSize: 12, color: theme.textMuted }}>
+          <span>Total planned footage: <strong style={{ color: theme.accent }}>{borings.reduce((s, b) => s + (Number(b.planned_depth) || 0), 0)} ft</strong></span>
+          <span>Total tubes: <strong style={{ color: theme.accent }}>{borings.reduce((s, b) => s + (Number(b.num_tubes) || 0), 0)}</strong></span>
         </div>
       </div>
 
@@ -498,10 +612,13 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                       <span style={{ fontSize: 11, fontWeight: 700, color: theme.accent, textTransform: "uppercase" }}>Boring Schedule ({wo.borings.length})</span>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
                         {wo.borings.map((b, i) => (
-                          <div key={i} style={{ background: theme.surface2, borderRadius: 6, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
+                          <div key={i} style={{ background: theme.surface2, borderRadius: 6, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                             <span style={{ color: theme.info, fontWeight: 700, fontFamily: "monospace" }}>{b.boringLabel}</span>
                             <span style={{ color: theme.textMuted }}>{b.type}</span>
                             <span style={{ color: theme.text }}>{b.plannedDepth} ft</span>
+                            {b.samplingInterval && <span style={{ fontSize: 10, color: b.samplingInterval === 'continuous' ? theme.accent : theme.textMuted, fontWeight: 600, textTransform: "uppercase" }}>{b.samplingInterval}</span>}
+                            {b.numTubes && <span style={{ fontSize: 10, color: theme.textMuted }}>{b.numTubes} tubes</span>}
+                            {b.boringLat && <span style={{ fontSize: 9, color: theme.success }}>📍</span>}
                             <Badge status={b.status} />
                           </div>
                         ))}
