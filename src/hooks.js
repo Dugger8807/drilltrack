@@ -89,7 +89,7 @@ export function useWorkOrders() {
     setLoading(true);
     const wos = await fetchTable('work_orders', {
       select: `*,
-        project:projects(name, project_number, client:clients(company_name)),
+        project:projects(name, project_number, location, lat, lng, client:clients(company_name)),
         rig:rigs(name, rig_type),
         crew:crews(name, lead:staff_members!crews_lead_id_fkey(first_name, last_name))`,
       order: 'created_at',
@@ -116,12 +116,19 @@ export function useWorkOrders() {
       });
     }
 
-    const enriched = wos.map(wo => ({
-      ...wo,
-      borings: borings.filter(b => b.work_order_id === wo.id),
-      rateSchedule: rates.filter(r => r.work_order_id === wo.id),
-      woActivities: woActs.filter(a => a.work_order_id === wo.id),
-    }));
+    const enriched = wos.map(wo => {
+      const woBorings = borings.filter(b => b.work_order_id === wo.id);
+      const woRates = rates.filter(r => r.work_order_id === wo.id);
+      const woAct = woActs.filter(a => a.work_order_id === wo.id);
+      if (woBorings.length > 0) console.log(`WO ${wo.wo_number || wo.id.slice(0,8)}: ${woBorings.length} borings found`);
+      return {
+        ...wo,
+        borings: woBorings,
+        rateSchedule: woRates,
+        woActivities: woAct,
+      };
+    });
+    console.log(`Total borings fetched: ${borings.length}, WOs: ${wos.length}`);
 
     setWorkOrders(enriched);
     setLoading(false);
