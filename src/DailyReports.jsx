@@ -18,7 +18,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   });
 
   const [production, setProduction] = useState([
-    { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, description: '' }
+    { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', description: '' }
   ]);
 
   const [billing, setBilling] = useState([]);
@@ -30,6 +30,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 
   // Auto-fill rig/crew when WO selected
   const selectedWO = workOrders.find(w => w.id === form.work_order_id);
+  // Debug: log boring count
+  if (selectedWO) console.log(`DR Form — Selected WO: ${selectedWO.woNumber}, borings: ${selectedWO.borings?.length}, IDs: ${selectedWO.borings?.map(b => b.boringLabel).join(', ')}`);
   useEffect(() => {
     if (selectedWO) {
       setForm(f => ({
@@ -45,7 +47,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
     }
   }, [form.work_order_id]);
 
-  const addProd = () => setProduction(p => [...p, { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, description: '' }]);
+  const addProd = () => setProduction(p => [...p, { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', description: '' }]);
   const updateProd = (idx, field, val) => setProduction(p => p.map((x, i) => i === idx ? { ...x, [field]: val } : x));
   const removeProd = (idx) => setProduction(p => p.filter((_, i) => i !== idx));
   const updateBill = (idx, field, val) => setBilling(b => b.map((x, i) => i === idx ? { ...x, [field]: val } : x));
@@ -181,6 +183,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       boring_type_id: p.boring_type_id || null,
       start_depth: Number(p.start_depth) || 0,
       end_depth: Number(p.end_depth) || 0,
+      num_tubes: p.num_tubes ? Number(p.num_tubes) : null,
+      grout_amount: p.grout_amount ? Number(p.grout_amount) : null,
       description: p.description,
       sort_order: i,
     }));
@@ -203,6 +207,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 
   const availableBorings = selectedWO?.borings || [];
   const totalFootage = production.reduce((s, p) => s + Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0)), 0);
+  const totalTubes = production.reduce((s, p) => s + (Number(p.num_tubes) || 0), 0);
+  const totalGrout = production.reduce((s, p) => s + (Number(p.grout_amount) || 0), 0);
   const totalBilling = billing.reduce((s, b) => s + (Number(b.quantity) || 0) * (Number(b.rate) || 0), 0);
 
   return (
@@ -279,39 +285,47 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
       <div style={{ marginTop: 20, background: theme.surface2, borderRadius: 10, padding: "14px 12px", border: `1px solid ${theme.border}` }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
           <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: theme.accent }}>
-            <Icon name="drill" size={15} color={theme.accent} /> Production ({production.length} • {totalFootage} ft)
+            <Icon name="drill" size={15} color={theme.accent} /> Production ({production.length} • {totalFootage} ft{totalTubes > 0 ? ` • ${totalTubes} tubes` : ''}{totalGrout > 0 ? ` • ${totalGrout} gal grout` : ''})
           </h3>
           <Btn variant="secondary" small onClick={addProd}><Icon name="plus" size={12} /> Add</Btn>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {production.map((p, idx) => (
             <div key={idx} style={{ background: theme.bg, borderRadius: 8, padding: 10, display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-              <div style={{ flex: "1 1 100px", minWidth: 90 }}>
+              <div style={{ flex: "1 1 140px", minWidth: 120 }}>
                 <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Boring</label>
-                <select style={{ ...selectStyle, fontSize: 13 }} value={p.wo_boring_id} onChange={e => updateProd(idx, 'wo_boring_id', e.target.value)}>
+                <select style={{ ...selectStyle, fontSize: 12 }} value={p.wo_boring_id} onChange={e => updateProd(idx, 'wo_boring_id', e.target.value)}>
                   <option value="">Select...</option>
-                  {availableBorings.map(b => <option key={b.id} value={b.id}>{b.boringLabel}</option>)}
+                  {availableBorings.map((b, i) => <option key={b.id || i} value={b.id || b.boringLabel}>{b.boringLabel} — {b.type} ({b.plannedDepth} ft)</option>)}
                 </select>
               </div>
-              <div style={{ flex: "1 1 120px" }}>
+              <div style={{ flex: "1 1 100px" }}>
                 <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Type</label>
-                <select style={{ ...selectStyle, fontSize: 13 }} value={p.boring_type_id} onChange={e => updateProd(idx, 'boring_type_id', e.target.value)}>
-                  {boringTypes.map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
+                <select style={{ ...selectStyle, fontSize: 12 }} value={p.boring_type_id} onChange={e => updateProd(idx, 'boring_type_id', e.target.value)}>
+                  {boringTypes.filter(t => t.is_active !== false).map(t => <option key={t.id} value={t.id}>{t.name}</option>)}
                 </select>
               </div>
-              <div style={{ flex: "0 0 70px" }}>
-                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>From</label>
-                <input style={{ ...inputStyle, fontSize: 13 }} type="number" value={p.start_depth} onChange={e => updateProd(idx, 'start_depth', e.target.value)} />
+              <div style={{ flex: "0 0 65px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>From (ft)</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.start_depth} onChange={e => updateProd(idx, 'start_depth', e.target.value)} />
               </div>
-              <div style={{ flex: "0 0 70px" }}>
-                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>To</label>
-                <input style={{ ...inputStyle, fontSize: 13 }} type="number" value={p.end_depth} onChange={e => updateProd(idx, 'end_depth', e.target.value)} />
+              <div style={{ flex: "0 0 65px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>To (ft)</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.end_depth} onChange={e => updateProd(idx, 'end_depth', e.target.value)} />
               </div>
-              <div style={{ flex: "0 0 50px", textAlign: "center", paddingTop: 14 }}>
-                <span style={{ fontSize: 14, fontWeight: 700, color: theme.accent }}>{Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0))}′</span>
+              <div style={{ flex: "0 0 40px", textAlign: "center", paddingTop: 14 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: theme.accent }}>{Math.max(0, (Number(p.end_depth) || 0) - (Number(p.start_depth) || 0))}′</span>
+              </div>
+              <div style={{ flex: "0 0 60px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}># Tubes</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.num_tubes || ''} onChange={e => updateProd(idx, 'num_tubes', e.target.value)} placeholder="0" />
+              </div>
+              <div style={{ flex: "0 0 75px" }}>
+                <label style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Grout (gal)</label>
+                <input style={{ ...inputStyle, fontSize: 12 }} type="number" value={p.grout_amount || ''} onChange={e => updateProd(idx, 'grout_amount', e.target.value)} placeholder="0" />
               </div>
               <div style={{ flex: "1 1 100%", minWidth: 0 }}>
-                <input style={{ ...inputStyle, fontSize: 13 }} value={p.description} onChange={e => updateProd(idx, 'description', e.target.value)} placeholder="Notes..." />
+                <input style={{ ...inputStyle, fontSize: 12 }} value={p.description} onChange={e => updateProd(idx, 'description', e.target.value)} placeholder="Notes..." />
               </div>
               {production.length > 1 && <Btn variant="ghost" small onClick={() => removeProd(idx)}><Icon name="x" size={14} color={theme.danger} /></Btn>}
             </div>
