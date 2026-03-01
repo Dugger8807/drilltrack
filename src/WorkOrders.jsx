@@ -18,20 +18,29 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     estimated_cost: editOrder.estimated_cost || '',
     assigned_rig_id: editOrder.assigned_rig_id || '',
     assigned_crew_id: editOrder.assigned_crew_id || '',
+    requested_start: editOrder.requested_start || editOrder.scheduled_start || '',
+    requested_end: editOrder.requested_end || editOrder.scheduled_end || '',
     scheduled_start: editOrder.scheduled_start || '',
     scheduled_end: editOrder.scheduled_end || '',
+    actual_start: editOrder.actual_start || '',
+    actual_end: editOrder.actual_end || '',
     site_address: editOrder.site_address || '',
     site_lat: editOrder.site_lat || '',
     site_lng: editOrder.site_lng || '',
     onecall_number: editOrder.onecall_number || '',
     onecall_date: editOrder.onecall_date || '',
+    requested_by: editOrder.requested_by || '',
+    engineer_rep: editOrder.engineer_rep || '',
   } : {
     project_id: '', name: '', scope: '', priority: 'medium',
     submitted_by_type: 'internal', estimated_cost: '',
     assigned_rig_id: '', assigned_crew_id: '',
+    requested_start: '', requested_end: '',
     scheduled_start: '', scheduled_end: '',
+    actual_start: '', actual_end: '',
     site_address: '', site_lat: '', site_lng: '',
     onecall_number: '', onecall_date: '',
+    requested_by: '', engineer_rep: '',
   });
 
   const [borings, setBorings] = useState(() => {
@@ -122,13 +131,19 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
       estimated_cost: Number(form.estimated_cost) || 0,
       assigned_rig_id: form.assigned_rig_id || null,
       assigned_crew_id: form.assigned_crew_id || null,
+      requested_start: form.requested_start || null,
+      requested_end: form.requested_end || null,
       scheduled_start: form.scheduled_start || null,
       scheduled_end: form.scheduled_end || null,
+      actual_start: form.actual_start || null,
+      actual_end: form.actual_end || null,
       site_address: form.site_address || null,
       site_lat: form.site_lat ? parseFloat(form.site_lat) : null,
       site_lng: form.site_lng ? parseFloat(form.site_lng) : null,
       onecall_number: form.onecall_number || null,
       onecall_date: form.onecall_date || null,
+      requested_by: form.requested_by || null,
+      engineer_rep: form.engineer_rep || null,
     };
     const boringData = borings.filter(b => b.boring_id_label).map((b, i) => ({
       boring_id_label: b.boring_id_label,
@@ -186,8 +201,22 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
             {crews.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </Field>
-        <Field label="Scheduled Start" half><input style={inputStyle} type="date" value={form.scheduled_start} onChange={e => update("scheduled_start", e.target.value)} /></Field>
-        <Field label="Scheduled End" half><input style={inputStyle} type="date" value={form.scheduled_end} onChange={e => update("scheduled_end", e.target.value)} /></Field>
+
+        {/* Requestor & Engineer */}
+        <Field label="Requested By" half><input style={inputStyle} value={form.requested_by} onChange={e => update("requested_by", e.target.value)} placeholder="Auto-filled on create" disabled={!editOrder && !!form.requested_by} /></Field>
+        <Field label="Engineer / Project Rep" half><input style={inputStyle} value={form.engineer_rep} onChange={e => update("engineer_rep", e.target.value)} placeholder="Engineer or PM name" /></Field>
+
+        {/* Requested Dates (from requestor) */}
+        <Field label="Requested Start" half><input style={inputStyle} type="date" value={form.requested_start} onChange={e => update("requested_start", e.target.value)} /></Field>
+        <Field label="Requested End" half><input style={inputStyle} type="date" value={form.requested_end} onChange={e => update("requested_end", e.target.value)} /></Field>
+
+        {/* Scheduled Dates (set by management) */}
+        <Field label="Scheduled Start (Mgmt)" half><input style={inputStyle} type="date" value={form.scheduled_start} onChange={e => update("scheduled_start", e.target.value)} /></Field>
+        <Field label="Scheduled End (Mgmt)" half><input style={inputStyle} type="date" value={form.scheduled_end} onChange={e => update("scheduled_end", e.target.value)} /></Field>
+
+        {/* Actual Dates (field reality) */}
+        <Field label="Actual Start" half><input style={inputStyle} type="date" value={form.actual_start} onChange={e => update("actual_start", e.target.value)} /></Field>
+        <Field label="Actual End" half><input style={inputStyle} type="date" value={form.actual_end} onChange={e => update("actual_end", e.target.value)} /></Field>
         <Field label="Scope of Work" required><textarea style={{ ...inputStyle, minHeight: 70, resize: "vertical" }} value={form.scope} onChange={e => update("scope", e.target.value)} /></Field>
       </div>
 
@@ -348,10 +377,12 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 }
 
 // ─── Work Orders List (reads adapted data) ───────────────────────────
-export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, canManage }) {
+export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, canManage, orgData, onQuickUpdate }) {
   const [filter, setFilter] = useState("all");
   const [expandedWO, setExpandedWO] = useState(null);
   const [attachments, setAttachments] = useState({});
+  const [quickEdit, setQuickEdit] = useState(null); // WO id being quick-edited
+  const [qe, setQe] = useState({}); // quick edit fields
 
   const fetchAttachments = async (woId) => {
     const { data } = await supabase.from('wo_attachments').select('*').eq('work_order_id', woId).order('created_at', { ascending: false });
@@ -400,13 +431,57 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
 
               {isOpen && (
                 <div style={{ padding: isMobile ? "0 12px 14px" : "0 18px 18px", borderTop: `1px solid ${theme.border}` }}>
-                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(200px, 1fr))", gap: 10, paddingTop: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "repeat(auto-fill, minmax(180px, 1fr))", gap: 10, paddingTop: 12 }}>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Name</span><div style={{ fontSize: 13, color: theme.text }}>{wo.name}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Rig / Crew</span><div style={{ fontSize: 13, color: theme.text }}>{wo.rigName || "—"} / {wo.crewName || "—"}</div></div>
-                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Dates</span><div style={{ fontSize: 13, color: theme.text }}>{wo.startDate ? `${wo.startDate} → ${wo.endDate}` : "TBD"}</div></div>
-                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Location</span><div style={{ fontSize: 13, color: theme.text }}>{wo.location || "—"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Requested By</span><div style={{ fontSize: 13, color: theme.text }}>{wo.requestedBy || "—"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Engineer / Rep</span><div style={{ fontSize: 13, color: theme.text }}>{wo.engineerRep || "—"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Requested Dates</span><div style={{ fontSize: 13, color: theme.textMuted }}>{wo.requestedStart ? `${wo.requestedStart} → ${wo.requestedEnd || 'TBD'}` : "—"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.info, textTransform: "uppercase", fontWeight: 600 }}>Scheduled Dates</span><div style={{ fontSize: 13, color: theme.info, fontWeight: 600 }}>{wo.startDate ? `${wo.startDate} → ${wo.endDate || 'TBD'}` : "TBD"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.success, textTransform: "uppercase", fontWeight: 600 }}>Actual Dates</span><div style={{ fontSize: 13, color: theme.success, fontWeight: 600 }}>{wo.actualStart ? `${wo.actualStart} → ${wo.actualEnd || 'ongoing'}` : "—"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Location</span><div style={{ fontSize: 13, color: theme.text }}>{wo.siteAddress || wo.location || "—"}</div></div>
+                    {wo.onecallNumber && <div><span style={{ fontSize: 10, color: theme.danger, textTransform: "uppercase", fontWeight: 600 }}>One-Call #</span><div style={{ fontSize: 13, color: theme.text }}>{wo.onecallNumber} {wo.onecallDate && <span style={{ color: theme.textMuted, fontSize: 11 }}>({wo.onecallDate})</span>}</div></div>}
                   </div>
                   {wo.scope && <div style={{ marginTop: 10 }}><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Scope</span><div style={{ fontSize: 13, color: theme.text, marginTop: 2 }}>{wo.scope}</div></div>}
+
+                  {/* Quick Assignment Panel */}
+                  {canManage && quickEdit === wo.id && (
+                    <div style={{ marginTop: 14, padding: 14, background: "rgba(96,165,250,0.06)", border: `1px solid rgba(96,165,250,0.2)`, borderRadius: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: theme.info, marginBottom: 10, textTransform: "uppercase" }}>Quick Assignment Update</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                        <Field label="Rig" half>
+                          <select style={{ ...selectStyle, fontSize: 12 }} value={qe.assigned_rig_id ?? ''} onChange={e => setQe(q => ({ ...q, assigned_rig_id: e.target.value }))}>
+                            <option value="">None</option>
+                            {(orgData?.rigs || []).map(r => <option key={r.id} value={r.id}>{r.name} ({r.rig_type})</option>)}
+                          </select>
+                        </Field>
+                        <Field label="Crew" half>
+                          <select style={{ ...selectStyle, fontSize: 12 }} value={qe.assigned_crew_id ?? ''} onChange={e => setQe(q => ({ ...q, assigned_crew_id: e.target.value }))}>
+                            <option value="">None</option>
+                            {(orgData?.crews || []).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                          </select>
+                        </Field>
+                        <Field label="Scheduled Start" half><input style={{ ...inputStyle, fontSize: 12 }} type="date" value={qe.scheduled_start ?? ''} onChange={e => setQe(q => ({ ...q, scheduled_start: e.target.value }))} /></Field>
+                        <Field label="Scheduled End" half><input style={{ ...inputStyle, fontSize: 12 }} type="date" value={qe.scheduled_end ?? ''} onChange={e => setQe(q => ({ ...q, scheduled_end: e.target.value }))} /></Field>
+                        <Field label="Actual Start" half><input style={{ ...inputStyle, fontSize: 12 }} type="date" value={qe.actual_start ?? ''} onChange={e => setQe(q => ({ ...q, actual_start: e.target.value }))} /></Field>
+                        <Field label="Actual End" half><input style={{ ...inputStyle, fontSize: 12 }} type="date" value={qe.actual_end ?? ''} onChange={e => setQe(q => ({ ...q, actual_end: e.target.value }))} /></Field>
+                      </div>
+                      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+                        <Btn small onClick={() => {
+                          const updates = {};
+                          if (qe.assigned_rig_id !== undefined) updates.assigned_rig_id = qe.assigned_rig_id || null;
+                          if (qe.assigned_crew_id !== undefined) updates.assigned_crew_id = qe.assigned_crew_id || null;
+                          if (qe.scheduled_start !== undefined) updates.scheduled_start = qe.scheduled_start || null;
+                          if (qe.scheduled_end !== undefined) updates.scheduled_end = qe.scheduled_end || null;
+                          if (qe.actual_start !== undefined) updates.actual_start = qe.actual_start || null;
+                          if (qe.actual_end !== undefined) updates.actual_end = qe.actual_end || null;
+                          onQuickUpdate(wo.id, updates);
+                          setQuickEdit(null); setQe({});
+                        }}><Icon name="check" size={12} /> Save Changes</Btn>
+                        <Btn variant="ghost" small onClick={() => { setQuickEdit(null); setQe({}); }}>Cancel</Btn>
+                      </div>
+                    </div>
+                  )}
 
                   {wo.borings.length > 0 && (
                     <div style={{ marginTop: 14 }}>
@@ -461,7 +536,11 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                     {canManage && wo.status === "scheduled" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="drill" size={12} /> Start Work</Btn>}
                     {canManage && wo.status === "in_progress" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "completed")}><Icon name="check" size={12} /> Complete</Btn>}
                     <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo)}><Icon name="report" size={12} /> PDF</Btn>
-                    {canManage && <Btn variant="secondary" small onClick={() => onEdit(wo)}><Icon name="clipboard" size={12} /> Edit</Btn>}
+                    {canManage && <Btn variant="secondary" small onClick={() => {
+                      setQuickEdit(quickEdit === wo.id ? null : wo.id);
+                      setQe({ assigned_rig_id: wo.assignedRig || '', assigned_crew_id: wo.assignedCrew || '', scheduled_start: wo.startDate || '', scheduled_end: wo.endDate || '', actual_start: wo.actualStart || '', actual_end: wo.actualEnd || '' });
+                    }}><Icon name="calendar" size={12} /> {quickEdit === wo.id ? 'Close' : 'Reassign'}</Btn>}
+                    {canManage && <Btn variant="secondary" small onClick={() => onEdit(wo)}><Icon name="clipboard" size={12} /> Full Edit</Btn>}
                   </div>
                 </div>
               )}

@@ -35,7 +35,10 @@ function adaptWorkOrders(dbWorkOrders) {
     rigName: wo.rig?.name, rigType: wo.rig?.rig_type,
     crewName: wo.crew?.name,
     crewLead: wo.crew?.lead ? `${wo.crew.lead.first_name} ${wo.crew.lead.last_name}` : '',
+    requestedStart: wo.requested_start, requestedEnd: wo.requested_end,
     startDate: wo.scheduled_start, endDate: wo.scheduled_end,
+    actualStart: wo.actual_start, actualEnd: wo.actual_end,
+    requestedBy: wo.requested_by || '', engineerRep: wo.engineer_rep || '',
     estimatedCost: wo.estimated_cost || 0,
     createdDate: wo.created_at?.split('T')[0],
     lat: wo.project?.lat || wo.site_lat, lng: wo.project?.lng || wo.site_lng, location: wo.project?.location || wo.site_address || '',
@@ -123,6 +126,7 @@ export default function App() {
 
   const handleCreateWO = async (woData, borings, rateSchedule) => {
     woData.org_id = ORG_ID; woData.status = 'pending';
+    if (!woData.requested_by) woData.requested_by = auth.fullName;
     const result = await createWorkOrder(woData, borings, rateSchedule);
     if (result) { setShowWOForm(false); setEditingWO(null); }
   };
@@ -130,6 +134,11 @@ export default function App() {
   const handleEditWO = async (woData, borings, rateSchedule) => {
     const result = await updateWorkOrder(editingWO.id, woData, borings, rateSchedule);
     if (result) { setShowWOForm(false); setEditingWO(null); }
+  };
+
+  // Quick update — rig/crew/dates without full edit form
+  const handleQuickUpdate = async (woId, updates) => {
+    await updateWOStatus(woId, null, updates);
   };
 
   const startEditWO = (adaptedWO) => {
@@ -224,7 +233,7 @@ export default function App() {
           )}
 
           {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} isMobile />}
-          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile canManage={canManage} />}
+          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} />}
           {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} isMobile onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
           {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} isMobile canManage={canManage} />}
           {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
@@ -298,7 +307,7 @@ export default function App() {
         {showDRForm && page === "reports" && <div style={{ marginBottom: 24 }}><DailyReportForm onSubmit={handleCreateDR} onCancel={() => setShowDRForm(false)} orgData={orgData} workOrders={workOrders} /></div>}
 
         {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} />}
-        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} canManage={canManage} />}
+        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} />}
         {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
         {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} canManage={canManage} />}
         {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}

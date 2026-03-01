@@ -164,7 +164,9 @@ export function useWorkOrders() {
   };
 
   const updateWOStatus = async (id, status, extra = {}) => {
-    return updateWorkOrder(id, { status, ...extra });
+    const updates = { ...extra };
+    if (status) updates.status = status;
+    return updateWorkOrder(id, updates);
   };
 
   return { workOrders, loading, refresh, createWorkOrder, updateWorkOrder, updateWOStatus };
