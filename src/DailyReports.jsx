@@ -6,23 +6,44 @@ import { DRPhotos } from "./FileUpload.jsx";
 import { supabase } from "./supabaseClient.js";
 
 // ─── Daily Report Form (writes to Supabase) ─────────────────────────
-export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
+export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders, editReport }) {
   const { rigs, crews, staff, boringTypes } = orgData;
-  const activeWOs = workOrders.filter(w => w.status === "in_progress" || w.status === "scheduled");
+  const activeWOs = workOrders.filter(w => w.status === "in_progress" || w.status === "scheduled" || w.status === "approved" || (editReport && w.id === editReport.workOrderId));
 
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(editReport ? {
+    work_order_id: editReport.workOrderId || '', report_date: editReport.date || new Date().toISOString().split("T")[0],
+    rig_id: editReport._raw?.rig_id || '', crew_id: editReport._raw?.crew_id || '', driller_id: editReport._raw?.driller_id || '',
+    start_time: editReport._raw?.start_time || '07:00', end_time: editReport._raw?.end_time || '17:00',
+    weather_conditions: editReport.weatherConditions || '', equipment_issues: editReport.equipmentIssues || 'None',
+    safety_incidents: editReport.safetyIncidents || 'None', notes: editReport.notes || '',
+    gps_lat: editReport._raw?.gps_lat || '', gps_lng: editReport._raw?.gps_lng || '',
+  } : {
     work_order_id: activeWOs[0]?.id || '', report_date: new Date().toISOString().split("T")[0],
     rig_id: '', crew_id: '', driller_id: '', start_time: '07:00', end_time: '17:00',
     weather_conditions: '', equipment_issues: 'None', safety_incidents: 'None', notes: '',
     gps_lat: '', gps_lng: '',
   });
 
-  const [production, setProduction] = useState([
+  const [production, setProduction] = useState(editReport?.production?.length ? 
+    editReport.production.map(p => ({
+      wo_boring_id: p._raw?.wo_boring_id || p.id || '', boring_type_id: p._raw?.boring_type_id || '',
+      start_depth: p.startDepth || 0, end_depth: p.endDepth || 0,
+      num_tubes: p._raw?.num_tubes || '', grout_amount: p._raw?.grout_amount || '',
+      bore_start_time: p._raw?.bore_start_time || '', bore_duration: p._raw?.bore_duration || '',
+      description: p.description || '',
+    })) : [
     { wo_boring_id: '', boring_type_id: boringTypes[0]?.id || '', start_depth: 0, end_depth: 0, num_tubes: '', grout_amount: '', bore_start_time: '', bore_duration: '', description: '' }
   ]);
 
-  const [billing, setBilling] = useState([]);
-  const [activities, setActivities] = useState([]);
+  const [billing, setBilling] = useState(editReport?.billing?.length ?
+    editReport.billing.map(b => ({
+      wo_rate_schedule_id: b._raw?.wo_rate_schedule_id || '', rate: b.rate || 0, quantity: b.quantity || 0,
+      unitName: b.unitName || '', unitLabel: b._raw?.unit_label || '',
+    })) : []);
+  const [activities, setActivities] = useState(editReport?.activities?.length ?
+    editReport.activities.map(a => ({
+      activity_type: a.activity_type || '', hours: a.hours || '', description: a.description || '',
+    })) : []);
   const [pendingPhotos, setPendingPhotos] = useState([]); // { file, caption, preview }
   const [submitting, setSubmitting] = useState(false);
 
@@ -217,7 +238,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
   return (
     <div style={{ background: theme.surface, border: `1px solid ${theme.border}`, borderRadius: 12, padding: "20px 16px" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>Daily Driller Report</h2>
+        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700, color: theme.text }}>{editReport ? "Edit Daily Report" : "Daily Driller Report"}</h2>
         <Btn variant="ghost" onClick={onCancel}><Icon name="x" size={16} /></Btn>
       </div>
 
@@ -440,7 +461,7 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders }) {
 }
 
 // ─── Daily Reports List with Approve/Reject ──────────────────────────
-export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile, canManage }) {
+export function DailyReportsList({ reports, workOrders, onStatusChange, onEdit, isMobile, canManage }) {
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -594,8 +615,10 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, isMobile
                     />
                   </div>
 
-                  <div style={{ marginTop: 12 }}>
+                  <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
                     <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r)}><Icon name="report" size={12} /> Download PDF</Btn>
+                    {onEdit && (r.status === "submitted" || r.status === "draft" || r.status === "rejected") && <Btn variant="secondary" small onClick={() => onEdit(r)}><Icon name="clipboard" size={12} /> Edit</Btn>}
+                    {onEdit && canManage && r.status === "approved" && <Btn variant="ghost" small onClick={() => onEdit(r)}><Icon name="clipboard" size={12} /> Edit</Btn>}
                   </div>
 
                   {canManage && r.status === "submitted" && (

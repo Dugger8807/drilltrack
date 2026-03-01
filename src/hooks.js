@@ -280,7 +280,7 @@ export function useDailyReports() {
     return true;
   };
 
-  const updateReport = async (id, reportData, productionEntries, billingEntries) => {
+  const updateReport = async (id, reportData, productionEntries, billingEntries, activityEntries) => {
     const { error } = await supabase.from('daily_reports').update(reportData).eq('id', id);
     if (error) { console.error('Error updating report:', error); return false; }
     // Replace production entries
@@ -297,6 +297,14 @@ export function useDailyReports() {
       if (billingEntries.length) {
         const rows = billingEntries.map(b => ({ ...b, daily_report_id: id }));
         await supabase.from('daily_report_billing').insert(rows);
+      }
+    }
+    // Replace activity entries
+    if (activityEntries) {
+      await supabase.from('daily_report_activities').delete().eq('daily_report_id', id);
+      if (activityEntries.length) {
+        const rows = activityEntries.map(a => ({ ...a, daily_report_id: id }));
+        await supabase.from('daily_report_activities').insert(rows);
       }
     }
     await refresh();

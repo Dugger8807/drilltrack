@@ -75,13 +75,16 @@ function adaptDailyReports(dbReports) {
     weatherConditions: dr.weather_conditions || '', equipmentIssues: dr.equipment_issues || '',
     safetyIncidents: dr.safety_incidents || '', notes: dr.notes || '',
     status: dr.status, reviewNotes: dr.review_notes || '',
+    _raw: dr, // keep raw for edit population
     production: (dr.production || []).map(p => ({
       id: p.id, boringLabel: p.boring?.boring_id_label || '', typeName: p.boring_type?.name || '',
       startDepth: p.start_depth, endDepth: p.end_depth, footage: p.footage, description: p.description || '',
+      _raw: p,
     })),
     billing: (dr.billing || []).map(b => ({
       id: b.id, unitName: b.rate_item?.billing_unit?.name || '',
       quantity: b.quantity, rate: b.rate, total: b.total, notes: b.notes || '',
+      _raw: b,
     })),
     activities: (dr.activities || []).map(a => ({
       id: a.id, activityType: a.activity_type, activity_type: a.activity_type,
@@ -189,6 +192,41 @@ export default function App() {
     }
   };
 
+  const startEditDR = (adaptedDR) => {
+    setEditingDR(adaptedDR);
+    setShowDRForm(true);
+    setShowWOForm(false);
+    setPage("reports");
+  };
+
+  const handleEditDR = async (reportData, production, billing, pendingPhotos, activities) => {
+    const result = await updateReport(editingDR.id, reportData, production, billing, activities);
+    if (result) {
+      // Upload any pending photos
+      if (pendingPhotos?.length) {
+        for (const photo of pendingPhotos) {
+          const path = `${editingDR.id}/${Date.now()}-${photo.file.name.replace(/[^a-zA-Z0-9._-]/g, '_')}`;
+          const { data: uploadData } = await supabase.storage.from('dr-photos').upload(path, photo.file, { upsert: true });
+          if (uploadData) {
+            const { data: urlData } = supabase.storage.from('dr-photos').getPublicUrl(path);
+            if (urlData?.publicUrl) {
+              await supabase.from('daily_report_photos').insert({
+                daily_report_id: editingDR.id,
+                file_name: photo.file.name,
+                file_url: urlData.publicUrl,
+                file_size: photo.file.size,
+                caption: photo.caption || '',
+                taken_at: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      }
+      setShowDRForm(false);
+      setEditingDR(null);
+    }
+  };
+
   // Filter nav based on role
   const mobileNav = navItems.filter(item => {
     if (item.id === 'admin' && !canManage) return false;
@@ -238,13 +276,13 @@ export default function App() {
             <WorkOrderForm onSubmit={editingWO ? handleEditWO : handleCreateWO} onCancel={() => { setShowWOForm(false); setEditingWO(null); }} editOrder={editingWO} orgData={{ ...orgData, projects }} />
           )}
           {showDRForm && page === "reports" && (
-            <DailyReportForm onSubmit={handleCreateDR} onCancel={() => setShowDRForm(false)} orgData={orgData} workOrders={workOrders} />
+            <DailyReportForm onSubmit={editingDR ? handleEditDR : handleCreateDR} onCancel={() => { setShowDRForm(false); setEditingDR(null); }} orgData={orgData} workOrders={workOrders} editReport={editingDR} />
           )}
 
           {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} isMobile />}
           {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} />}
           {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} isMobile onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
-          {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} isMobile canManage={canManage} />}
+          {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} onEdit={startEditDR} isMobile canManage={canManage} />}
           {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
           {page === "admin" && canManage && <AdminConfig orgData={orgData} projects={projects} isMobile />}
         </div>
@@ -313,12 +351,12 @@ export default function App() {
         </div>
 
         {showWOForm && page === "workorders" && <div style={{ marginBottom: 24 }}><WorkOrderForm onSubmit={editingWO ? handleEditWO : handleCreateWO} onCancel={() => { setShowWOForm(false); setEditingWO(null); }} editOrder={editingWO} orgData={{ ...orgData, projects }} /></div>}
-        {showDRForm && page === "reports" && <div style={{ marginBottom: 24 }}><DailyReportForm onSubmit={handleCreateDR} onCancel={() => setShowDRForm(false)} orgData={orgData} workOrders={workOrders} /></div>}
+        {showDRForm && page === "reports" && <div style={{ marginBottom: 24 }}><DailyReportForm onSubmit={editingDR ? handleEditDR : handleCreateDR} onCancel={() => { setShowDRForm(false); setEditingDR(null); }} orgData={orgData} workOrders={workOrders} editReport={editingDR} /></div>}
 
         {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} />}
         {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} />}
         {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
-        {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} canManage={canManage} />}
+        {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} onEdit={startEditDR} canManage={canManage} />}
         {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}
         {page === "admin" && canManage && <AdminConfig orgData={orgData} projects={projects} />}
       </div>
