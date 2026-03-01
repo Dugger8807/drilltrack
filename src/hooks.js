@@ -206,7 +206,7 @@ export function useDailyReports() {
     setLoading(true);
     const drs = await fetchTable('daily_reports', {
       select: `*,
-        work_order:work_orders(wo_number, name, project:projects(name)),
+        work_order:work_orders(wo_number, name, project:projects(name, project_number)),
         rig:rigs(name, rig_type),
         crew:crews(name),
         driller:staff_members(first_name, last_name)`,
