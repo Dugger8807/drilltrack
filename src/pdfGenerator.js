@@ -300,10 +300,12 @@ export async function generateWorkOrderPDF(wo) {
   y = infoRow2(doc, y, 'WO Number', wo.woNumber, 'Status', (wo.status || '').replace('_', ' ').toUpperCase());
   y = infoRow2(doc, y, 'Project', wo.projectName, 'Project #', wo.projectNumber);
   y = infoRow2(doc, y, 'Client', wo.client, 'Priority', (wo.priority || '').toUpperCase());
-  y = infoRow2(doc, y, 'Name', wo.name, 'Location', wo.location);
+  y = infoRow2(doc, y, 'Name', wo.name, 'Location', wo.siteAddress || wo.location || '—');
+  y = infoRow2(doc, y, 'Requested By', wo.requestedBy || '—', 'Engineer / Rep', wo.engineerRep || '—');
   y = infoRow2(doc, y, 'Rig', wo.rigName || '—', 'Crew', wo.crewName || '—');
-  y = infoRow2(doc, y, 'Start Date', wo.startDate || 'TBD', 'End Date', wo.endDate || 'TBD');
-  y = infoRow(doc, y, 'Estimated Cost', wo.estimatedCost ? `$${Number(wo.estimatedCost).toLocaleString()}` : '—');
+  y = infoRow2(doc, y, 'Requested Dates', wo.requestedStart ? `${wo.requestedStart} → ${wo.requestedEnd || 'TBD'}` : '—', 'Scheduled Dates', wo.startDate ? `${wo.startDate} → ${wo.endDate || 'TBD'}` : 'TBD');
+  y = infoRow2(doc, y, 'Actual Dates', wo.actualStart ? `${wo.actualStart} → ${wo.actualEnd || 'ongoing'}` : '—', 'Estimated Cost', wo.estimatedCost ? `$${Number(wo.estimatedCost).toLocaleString()}` : '—');
+  if (wo.onecallNumber) y = infoRow2(doc, y, 'One-Call #', wo.onecallNumber, 'One-Call Date', wo.onecallDate || '—');
   y += 2;
 
   // ── Scope ──
@@ -380,6 +382,38 @@ export async function generateWorkOrderPDF(wo) {
         unit: r.unitLabel,
         qty: r.estimatedQty || '—',
         estTotal: r.estimatedQty ? `$${(r.rate * r.estimatedQty).toFixed(2)}` : '—',
+      })),
+    });
+
+    y = doc.lastAutoTable.finalY + 4;
+  }
+
+  // ── Other Field Activities ──
+  if (wo.woActivities?.length > 0) {
+    y = checkPage(doc, y, 20 + wo.woActivities.length * 8);
+    y = sectionTitle(doc, y, `Other Field Activities (${wo.woActivities.length})`);
+
+    doc.autoTable({
+      startY: y,
+      margin: { left: 14, right: 14 },
+      headStyles: { fillColor: [107, 78, 191], textColor: C.white, fontSize: 8, fontStyle: 'bold', cellPadding: 3 },
+      bodyStyles: { fontSize: 8, textColor: C.text, cellPadding: 2.5 },
+      alternateRowStyles: { fillColor: [248, 248, 252] },
+      columns: [
+        { header: 'Activity', dataKey: 'type' },
+        { header: 'Qty', dataKey: 'qty' },
+        { header: 'Depth', dataKey: 'depth' },
+        { header: 'Size', dataKey: 'size' },
+        { header: 'Method', dataKey: 'method' },
+        { header: 'Notes', dataKey: 'notes' },
+      ],
+      body: wo.woActivities.map(a => ({
+        type: a.activity_type || '',
+        qty: a.quantity || 1,
+        depth: a.depth ? `${a.depth} ft` : '—',
+        size: a.size || '—',
+        method: a.method ? a.method.replace(/_/g, ' ') : '—',
+        notes: a.notes || '',
       })),
     });
 

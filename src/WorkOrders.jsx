@@ -525,6 +525,24 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                     </div>
                   )}
 
+                  {wo.woActivities?.length > 0 && (
+                    <div style={{ marginTop: 14 }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "#a78bfa", textTransform: "uppercase" }}>Other Field Activities ({wo.woActivities.length})</span>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 6 }}>
+                        {wo.woActivities.map((a, i) => (
+                          <div key={i} style={{ background: theme.surface2, borderRadius: 6, padding: "6px 10px", fontSize: 12, display: "flex", gap: 8, alignItems: "center" }}>
+                            <span style={{ color: "#a78bfa", fontWeight: 700 }}>{a.activity_type}</span>
+                            {a.quantity > 1 && <span style={{ color: theme.text }}>×{a.quantity}</span>}
+                            {a.depth && <span style={{ color: theme.textMuted }}>{a.depth} ft</span>}
+                            {a.size && <span style={{ color: theme.textMuted }}>{a.size}</span>}
+                            {a.method && <span style={{ color: theme.textMuted }}>{a.method.replace('_', ' ')}</span>}
+                            {a.notes && <span style={{ color: theme.textMuted, fontStyle: "italic" }}>{a.notes}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Attachments */}
                   <div style={{ marginTop: 14 }}>
                     <span style={{ fontSize: 11, fontWeight: 700, color: theme.accent, textTransform: "uppercase" }}>
