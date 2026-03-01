@@ -530,11 +530,19 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                   </div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 14, flexWrap: "wrap" }}>
+                    {/* Forward status actions */}
                     {canManage && wo.status === "pending" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "approved")}><Icon name="check" size={12} /> Approve</Btn>}
                     {canManage && wo.status === "pending" && <Btn variant="danger" small onClick={() => onStatusChange(wo.id, "cancelled")}><Icon name="reject" size={12} /> Reject</Btn>}
                     {canManage && wo.status === "approved" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "scheduled")}><Icon name="calendar" size={12} /> Mark Scheduled</Btn>}
                     {canManage && wo.status === "scheduled" && <Btn variant="primary" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="drill" size={12} /> Start Work</Btn>}
                     {canManage && wo.status === "in_progress" && <Btn variant="success" small onClick={() => onStatusChange(wo.id, "completed")}><Icon name="check" size={12} /> Complete</Btn>}
+                    {/* Rollback status actions */}
+                    {canManage && wo.status === "approved" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "pending")}><Icon name="reject" size={12} /> → Back to Pending</Btn>}
+                    {canManage && wo.status === "scheduled" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "approved")}><Icon name="reject" size={12} /> → Back to Approved</Btn>}
+                    {canManage && wo.status === "in_progress" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "scheduled")}><Icon name="reject" size={12} /> → Back to Scheduled</Btn>}
+                    {canManage && wo.status === "completed" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="reject" size={12} /> → Reopen</Btn>}
+                    {canManage && wo.status === "cancelled" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "pending")}><Icon name="reject" size={12} /> → Reactivate</Btn>}
+                    {/* Tools */}
                     <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo)}><Icon name="report" size={12} /> PDF</Btn>
                     {canManage && <Btn variant="secondary" small onClick={() => {
                       setQuickEdit(quickEdit === wo.id ? null : wo.id);
