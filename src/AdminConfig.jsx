@@ -78,7 +78,11 @@ function RigsSection({ rigs, onRefresh }) {
     onRefresh();
   };
 
-  return (
+  const hardDelete = async (id, name) => {
+    if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+    await supabase.from('rigs').delete().eq('id', id);
+    onRefresh();
+  };
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
         <span style={{ fontSize: 13, color: theme.textMuted }}>{rigs.length} rigs configured</span>
@@ -100,6 +104,7 @@ function RigsSection({ rigs, onRefresh }) {
             <div style={{ display: "flex", gap: 6 }}>
               <Btn variant="ghost" small onClick={() => { setEditing(r.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
               <Btn variant="ghost" small onClick={() => toggleActive(r.id, r.is_active !== false)}><Icon name={r.is_active !== false ? "x" : "check"} size={12} color={r.is_active !== false ? theme.danger : theme.success} /></Btn>
+              {r.is_active === false && <Btn variant="ghost" small onClick={() => hardDelete(r.id, r.name)}><Icon name="reject" size={12} color={theme.danger} /></Btn>}
             </div>
           </div>
         ))}
@@ -151,7 +156,11 @@ function StaffSection({ staff, onRefresh }) {
     onRefresh();
   };
 
-  // ── Create login for a staff member ──
+  const hardDelete = async (id, name) => {
+    if (!confirm(`Permanently delete ${name}? This cannot be undone.`)) return;
+    await supabase.from('staff_members').delete().eq('id', id);
+    onRefresh();
+  };
   const createLogin = async (staffMember) => {
     if (!staffMember.email) return setInviteStatus({ type: 'error', msg: 'Staff member needs an email first.' });
     if (!invitePassword || invitePassword.length < 6) return setInviteStatus({ type: 'error', msg: 'Password must be at least 6 characters.' });
@@ -253,6 +262,7 @@ function StaffSection({ staff, onRefresh }) {
                 )}
                 <Btn variant="ghost" small onClick={() => { setEditing(s.id); setAdding(false); setInviting(null); }}><Icon name="clipboard" size={12} /></Btn>
                 <Btn variant="ghost" small onClick={() => toggleActive(s.id, s.is_active !== false)}><Icon name={s.is_active !== false ? "x" : "check"} size={12} color={s.is_active !== false ? theme.danger : theme.success} /></Btn>
+                {s.is_active === false && <Btn variant="ghost" small onClick={() => hardDelete(s.id, `${s.first_name} ${s.last_name}`)}><Icon name="reject" size={12} color={theme.danger} /></Btn>}
               </div>
             </div>
 
@@ -310,6 +320,17 @@ function CrewsSection({ crews, staff, onRefresh }) {
     setEditing(null); setAdding(false); onRefresh();
   };
 
+  const toggleActive = async (id, current) => {
+    await supabase.from('crews').update({ is_active: !current }).eq('id', id);
+    onRefresh();
+  };
+
+  const hardDelete = async (id, name) => {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    await supabase.from('crews').delete().eq('id', id);
+    onRefresh();
+  };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -321,12 +342,16 @@ function CrewsSection({ crews, staff, onRefresh }) {
         {crews.map(c => editing === c.id ? (
           <InlineEditor key={c.id} fields={fields} item={c} onSave={save} onCancel={() => setEditing(null)} />
         ) : (
-          <div key={c.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div key={c.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: c.is_active === false ? 0.4 : 1 }}>
             <div style={{ display: "flex", gap: 16, alignItems: "center" }}>
               <span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{c.name}</span>
               <span style={{ fontSize: 12, color: theme.textMuted }}>Lead: {c.lead ? `${c.lead.first_name} ${c.lead.last_name}` : '—'}</span>
             </div>
-            <Btn variant="ghost" small onClick={() => { setEditing(c.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Btn variant="ghost" small onClick={() => { setEditing(c.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
+              <Btn variant="ghost" small onClick={() => toggleActive(c.id, c.is_active !== false)}><Icon name={c.is_active !== false ? "x" : "check"} size={12} color={c.is_active !== false ? theme.danger : theme.success} /></Btn>
+              {c.is_active === false && <Btn variant="ghost" small onClick={() => hardDelete(c.id, c.name)}><Icon name="reject" size={12} color={theme.danger} /></Btn>}
+            </div>
           </div>
         ))}
       </div>
@@ -369,6 +394,12 @@ function BillingUnitsSection({ units, onRefresh }) {
     onRefresh();
   };
 
+  const hardDelete = async (id, name) => {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    await supabase.from('billing_unit_types').delete().eq('id', id);
+    onRefresh();
+  };
+
   const grouped = {};
   units.forEach(u => { const cat = u.category || 'other'; if (!grouped[cat]) grouped[cat] = []; grouped[cat].push(u); });
 
@@ -395,6 +426,7 @@ function BillingUnitsSection({ units, onRefresh }) {
                 <div style={{ display: "flex", gap: 6 }}>
                   <Btn variant="ghost" small onClick={() => { setEditing(u.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
                   <Btn variant="ghost" small onClick={() => toggleActive(u.id, u.is_active !== false)}><Icon name={u.is_active !== false ? "x" : "check"} size={12} color={u.is_active !== false ? theme.danger : theme.success} /></Btn>
+                  {u.is_active === false && <Btn variant="ghost" small onClick={() => hardDelete(u.id, u.name)}><Icon name="reject" size={12} color={theme.danger} /></Btn>}
                 </div>
               </div>
             ))}
@@ -425,6 +457,17 @@ function BoringTypesSection({ types, onRefresh }) {
     setEditing(null); setAdding(false); onRefresh();
   };
 
+  const toggleActive = async (id, current) => {
+    await supabase.from('boring_types').update({ is_active: !current }).eq('id', id);
+    onRefresh();
+  };
+
+  const hardDelete = async (id, name) => {
+    if (!confirm(`Permanently delete "${name}"? This cannot be undone.`)) return;
+    await supabase.from('boring_types').delete().eq('id', id);
+    onRefresh();
+  };
+
   return (
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
@@ -436,9 +479,13 @@ function BoringTypesSection({ types, onRefresh }) {
         {types.map(t => editing === t.id ? (
           <InlineEditor key={t.id} fields={fields} item={t} onSave={save} onCancel={() => setEditing(null)} />
         ) : (
-          <div key={t.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div key={t.id} style={{ background: theme.surface2, borderRadius: 8, padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", opacity: t.is_active === false ? 0.4 : 1 }}>
             <div><span style={{ fontSize: 13, fontWeight: 700, color: theme.text }}>{t.name}</span>{t.description && <span style={{ fontSize: 12, color: theme.textMuted, marginLeft: 12 }}>{t.description}</span>}</div>
-            <Btn variant="ghost" small onClick={() => { setEditing(t.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
+            <div style={{ display: "flex", gap: 6 }}>
+              <Btn variant="ghost" small onClick={() => { setEditing(t.id); setAdding(false); }}><Icon name="clipboard" size={12} /></Btn>
+              <Btn variant="ghost" small onClick={() => toggleActive(t.id, t.is_active !== false)}><Icon name={t.is_active !== false ? "x" : "check"} size={12} color={t.is_active !== false ? theme.danger : theme.success} /></Btn>
+              {t.is_active === false && <Btn variant="ghost" small onClick={() => hardDelete(t.id, t.name)}><Icon name="reject" size={12} color={theme.danger} /></Btn>}
+            </div>
           </div>
         ))}
       </div>
