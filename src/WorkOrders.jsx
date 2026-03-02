@@ -95,6 +95,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     onecall_date: editOrder.onecall_date || '',
     requested_by: editOrder.requested_by || '',
     engineer_rep: editOrder.engineer_rep || '',
+    engineer_rep_email: editOrder.engineer_rep_email || '',
   } : {
     project_id: '', name: '', scope: '', priority: 'medium',
     submitted_by_type: 'internal', estimated_cost: '',
@@ -104,7 +105,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
     actual_start: '', actual_end: '',
     site_address: '', site_lat: '', site_lng: '',
     onecall_number: '', onecall_date: '',
-    requested_by: '', engineer_rep: '',
+    requested_by: '', engineer_rep: '', engineer_rep_email: '',
   });
 
   const [borings, setBorings] = useState(() => {
@@ -212,6 +213,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
       onecall_date: form.onecall_date || null,
       requested_by: form.requested_by || null,
       engineer_rep: form.engineer_rep || null,
+      engineer_rep_email: form.engineer_rep_email || null,
     };
     const boringData = borings.filter(b => b.boring_id_label).map((b, i) => ({
       boring_id_label: b.boring_id_label,
@@ -286,6 +288,7 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
         {/* Requestor & Engineer */}
         <Field label="Requested By" half><input style={inputStyle} value={form.requested_by} onChange={e => update("requested_by", e.target.value)} placeholder="Auto-filled on create" disabled={!editOrder && !!form.requested_by} /></Field>
         <Field label="Engineer / Project Rep" half><input style={inputStyle} value={form.engineer_rep} onChange={e => update("engineer_rep", e.target.value)} placeholder="Engineer or PM name" /></Field>
+        <Field label="Engineer Rep Email" half><input style={inputStyle} type="email" value={form.engineer_rep_email} onChange={e => update("engineer_rep_email", e.target.value)} placeholder="engineer@company.com" /></Field>
 
         {/* Requested Dates (from requestor) */}
         <Field label="Requested Start" half><input style={inputStyle} type="date" value={form.requested_start} onChange={e => update("requested_start", e.target.value)} /></Field>
@@ -562,7 +565,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Name</span><div style={{ fontSize: 13, color: theme.text }}>{wo.name}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Rig / Crew</span><div style={{ fontSize: 13, color: theme.text }}>{wo.rigName || "—"} / {wo.crewName || "—"}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Requested By</span><div style={{ fontSize: 13, color: theme.text }}>{wo.requestedBy || "—"}</div></div>
-                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Engineer / Rep</span><div style={{ fontSize: 13, color: theme.text }}>{wo.engineerRep || "—"}</div></div>
+                    <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Engineer / Rep</span><div style={{ fontSize: 13, color: theme.text }}>{wo.engineerRep || "—"}{wo.engineer_rep_email && <span style={{ fontSize: 11, color: theme.textMuted, marginLeft: 6 }}>{wo.engineer_rep_email}</span>}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.textMuted, textTransform: "uppercase" }}>Requested Dates</span><div style={{ fontSize: 13, color: theme.textMuted }}>{wo.requestedStart ? `${wo.requestedStart} → ${wo.requestedEnd || 'TBD'}` : "—"}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.info, textTransform: "uppercase", fontWeight: 600 }}>Scheduled Dates</span><div style={{ fontSize: 13, color: theme.info, fontWeight: 600 }}>{wo.startDate ? `${wo.startDate} → ${wo.endDate || 'TBD'}` : "TBD"}</div></div>
                     <div><span style={{ fontSize: 10, color: theme.success, textTransform: "uppercase", fontWeight: 600 }}>Actual Dates</span><div style={{ fontSize: 13, color: theme.success, fontWeight: 600 }}>{wo.actualStart ? `${wo.actualStart} → ${wo.actualEnd || 'ongoing'}` : "—"}</div></div>

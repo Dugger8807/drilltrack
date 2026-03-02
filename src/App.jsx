@@ -38,7 +38,7 @@ function adaptWorkOrders(dbWorkOrders) {
     requestedStart: wo.requested_start, requestedEnd: wo.requested_end,
     startDate: wo.scheduled_start, endDate: wo.scheduled_end,
     actualStart: wo.actual_start, actualEnd: wo.actual_end,
-    requestedBy: wo.requested_by || '', engineerRep: wo.engineer_rep || '',
+    requestedBy: wo.requested_by || '', engineerRep: wo.engineer_rep || '', engineer_rep_email: wo.engineer_rep_email || '',
     estimatedCost: wo.estimated_cost || 0,
     createdDate: wo.created_at?.split('T')[0],
     lat: wo.project?.lat || wo.site_lat, lng: wo.project?.lng || wo.site_lng, location: wo.project?.location || wo.site_address || '',
