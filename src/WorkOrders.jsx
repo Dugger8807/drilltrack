@@ -5,6 +5,7 @@ import { downloadWorkOrderPDF } from "./pdfGenerator.js";
 import { WOAttachments } from "./FileUpload.jsx";
 import { supabase } from "./supabaseClient.js";
 import * as XLSX from "xlsx";
+import { useAuth } from "./AuthProvider.jsx";
 
 // ─── Boring Schedule Excel Helpers ──────────────────────────────────
 const BORING_TEMPLATE_COLS = ['Boring ID', 'Type', 'Depth (ft)', 'Sampling', '# Tubes', 'Latitude', 'Longitude'];
@@ -501,6 +502,8 @@ export function WorkOrderForm({ onSubmit, onCancel, editOrder, orgData }) {
 
 // ─── Work Orders List (reads adapted data) ───────────────────────────
 export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, canManage, orgData, onQuickUpdate }) {
+  const auth = useAuth();
+  const branding = auth?.branding || {};
   const [filter, setFilter] = useState("all");
   const [expandedWO, setExpandedWO] = useState(null);
   const [attachments, setAttachments] = useState({});
@@ -688,7 +691,7 @@ export function WorkOrdersList({ workOrders, onStatusChange, onEdit, isMobile, c
                     {canManage && wo.status === "completed" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "in_progress")}><Icon name="reject" size={12} /> → Reopen</Btn>}
                     {canManage && wo.status === "cancelled" && <Btn variant="ghost" small onClick={() => onStatusChange(wo.id, "pending")}><Icon name="reject" size={12} /> → Reactivate</Btn>}
                     {/* Tools */}
-                    <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo)}><Icon name="report" size={12} /> PDF</Btn>
+                    <Btn variant="secondary" small onClick={() => downloadWorkOrderPDF(wo, branding)}><Icon name="report" size={12} /> PDF</Btn>
                     {canManage && <Btn variant="secondary" small onClick={() => {
                       setQuickEdit(quickEdit === wo.id ? null : wo.id);
                       setQe({ assigned_rig_id: wo.assignedRig || '', assigned_crew_id: wo.assignedCrew || '', scheduled_start: wo.startDate || '', scheduled_end: wo.endDate || '', actual_start: wo.actualStart || '', actual_end: wo.actualEnd || '' });

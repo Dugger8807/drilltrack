@@ -4,6 +4,7 @@ import { Icon, Badge, Btn, Field } from "./ui.jsx";
 import { downloadDailyReportPDF } from "./pdfGenerator.js";
 import { DRPhotos } from "./FileUpload.jsx";
 import { supabase } from "./supabaseClient.js";
+import { useAuth } from "./AuthProvider.jsx";
 
 // ─── Daily Report Form (writes to Supabase) ─────────────────────────
 export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders, editReport }) {
@@ -462,6 +463,8 @@ export function DailyReportForm({ onSubmit, onCancel, orgData, workOrders, editR
 
 // ─── Daily Reports List with Approve/Reject ──────────────────────────
 export function DailyReportsList({ reports, workOrders, onStatusChange, onEdit, isMobile, canManage }) {
+  const auth = useAuth();
+  const branding = auth?.branding || {};
   const [expanded, setExpanded] = useState(null);
   const [filter, setFilter] = useState("all");
   const [projectFilter, setProjectFilter] = useState("all");
@@ -616,7 +619,7 @@ export function DailyReportsList({ reports, workOrders, onStatusChange, onEdit, 
                   </div>
 
                   <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-                    <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r)}><Icon name="report" size={12} /> Download PDF</Btn>
+                    <Btn variant="secondary" small onClick={() => downloadDailyReportPDF(r, branding)}><Icon name="report" size={12} /> Download PDF</Btn>
                     {onEdit && (r.status === "submitted" || r.status === "draft" || r.status === "rejected") && <Btn variant="secondary" small onClick={() => onEdit(r)}><Icon name="clipboard" size={12} /> Edit</Btn>}
                     {onEdit && canManage && r.status === "approved" && <Btn variant="ghost" small onClick={() => onEdit(r)}><Icon name="clipboard" size={12} /> Edit</Btn>}
                   </div>
