@@ -111,6 +111,7 @@ export default function App() {
   const logoSrc = b.logo_url || TE_LOGO;
   const companyName = b.company_name || '';
   const tagline = b.tagline || 'Geotechnical Field Operations';
+  useEffect(() => { if (companyName) document.title = `DrillTrack — ${companyName}`; }, [companyName]);
   const [page, setPage] = useState("dashboard");
   const [showWOForm, setShowWOForm] = useState(false);
   const [showDRForm, setShowDRForm] = useState(false);
