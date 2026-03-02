@@ -97,9 +97,8 @@ function LoadingScreen() {
   return (
     <div style={{ minHeight: "100vh", background: theme.bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
       <div style={{ textAlign: "center" }}>
-        <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 40, marginBottom: 16 }} />
-        <div style={{ fontSize: 18, fontWeight: 800, color: theme.text, marginBottom: 4 }}>DRILLTRACK</div>
-        <div style={{ fontSize: 10, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12, fontWeight: 600 }}>Geotechnical Field Operations</div>
+        <div style={{ fontSize: 22, fontWeight: 800, color: theme.text, marginBottom: 4 }}>DRILLTRACK</div>
+        <div style={{ fontSize: 10, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 12, fontWeight: 600 }}>Field Operations Management</div>
         <div style={{ fontSize: 13, color: theme.textMuted }}>Loading...</div>
       </div>
     </div>
@@ -108,6 +107,10 @@ function LoadingScreen() {
 
 export default function App() {
   const auth = useAuth();
+  const b = auth?.branding || {};
+  const logoSrc = b.logo_url || TE_LOGO;
+  const companyName = b.company_name || '';
+  const tagline = b.tagline || 'Geotechnical Field Operations';
   const [page, setPage] = useState("dashboard");
   const [showWOForm, setShowWOForm] = useState(false);
   const [showDRForm, setShowDRForm] = useState(false);
@@ -247,7 +250,7 @@ export default function App() {
         {/* Mobile top bar */}
         <div style={{ background: theme.surface, borderBottom: `1px solid ${theme.border}`, padding: "0 12px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 50, position: "sticky", top: 0, zIndex: 100 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 24 }} />
+            <img src={logoSrc} alt={companyName} style={{ height: 24 }} />
             <span style={{ fontSize: 13, fontWeight: 800, color: theme.text }}>DRILLTRACK</span>
           </div>
           <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
@@ -280,9 +283,9 @@ export default function App() {
           )}
 
           {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} isMobile />}
-          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} />}
+          {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} isMobile canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} branding={b} />}
           {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} isMobile onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
-          {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} onEdit={startEditDR} isMobile canManage={canManage} />}
+          {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} onEdit={startEditDR} isMobile canManage={canManage} branding={b} />}
           {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} isMobile />}
           {page === "admin" && canManage && <AdminConfig orgData={orgData} projects={projects} isMobile />}
         </div>
@@ -305,10 +308,10 @@ export default function App() {
     <div style={{ minHeight: "100vh", background: theme.bg, color: theme.text, fontFamily: "'DM Sans', 'Segoe UI', system-ui, sans-serif" }}>
       <div style={{ background: theme.surface, borderBottom: `1px solid ${theme.border}`, padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 56, position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <img src={TE_LOGO} alt="Thompson Engineering" style={{ height: 30 }} />
+          <img src={logoSrc} alt={companyName} style={{ height: 30 }} />
           <div>
             <div style={{ fontSize: 15, fontWeight: 800, color: theme.text, letterSpacing: "-0.02em" }}>DRILLTRACK</div>
-            <div style={{ fontSize: 8, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: -2, fontWeight: 600 }}>Geotechnical Field Operations</div>
+            <div style={{ fontSize: 8, color: theme.accent, textTransform: "uppercase", letterSpacing: "0.1em", marginTop: -2, fontWeight: 600 }}>{tagline}</div>
           </div>
         </div>
         <div style={{ display: "flex", gap: 2 }}>
@@ -354,9 +357,9 @@ export default function App() {
         {showDRForm && page === "reports" && <div style={{ marginBottom: 24 }}><DailyReportForm onSubmit={editingDR ? handleEditDR : handleCreateDR} onCancel={() => { setShowDRForm(false); setEditingDR(null); }} orgData={orgData} workOrders={workOrders} editReport={editingDR} /></div>}
 
         {page === "dashboard" && <Dashboard workOrders={workOrders} dailyReports={dailyReports} dbRigs={rigs} dbCrews={crews} />}
-        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} />}
+        {page === "workorders" && !showWOForm && <WorkOrdersList workOrders={workOrders} onStatusChange={async (id, s) => { await updateWOStatus(id, s); }} onEdit={startEditWO} canManage={canManage} orgData={orgData} onQuickUpdate={handleQuickUpdate} branding={b} />}
         {page === "scheduler" && <GanttScheduler workOrders={workOrders} orgData={orgData} onAssign={async (woId, rigId, crewId) => { const td = new Date().toISOString().split("T")[0]; const ed = new Date(); ed.setDate(ed.getDate() + 14); await updateWOStatus(woId, "scheduled", { assigned_rig_id: rigId, assigned_crew_id: crewId, scheduled_start: td, scheduled_end: ed.toISOString().split("T")[0] }); }} />}
-        {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} onEdit={startEditDR} canManage={canManage} />}
+        {page === "reports" && !showDRForm && <DailyReportsList reports={dailyReports} workOrders={workOrders} onStatusChange={async (id, s, n) => { await updateReportStatus(id, s, n); }} onEdit={startEditDR} canManage={canManage} branding={b} />}
         {page === "billing" && canManage && <BillingTracker workOrders={workOrders} dailyReports={dailyReports} />}
         {page === "admin" && canManage && <AdminConfig orgData={orgData} projects={projects} />}
       </div>
