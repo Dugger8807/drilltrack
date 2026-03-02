@@ -20,7 +20,7 @@ const C = {
 };
 
 // ─── Helper: draw header on each page ────────────────────────────────
-function drawHeader(doc, title, subtitle) {
+function drawHeader(doc, title, subtitle, branding) {
   const w = doc.internal.pageSize.getWidth();
   // Header bar
   doc.setFillColor(...C.headerBg);
@@ -28,8 +28,10 @@ function drawHeader(doc, title, subtitle) {
   // Accent stripe
   doc.setFillColor(...C.accent);
   doc.rect(0, 30, w, 2, 'F');
-  // TE Logo
-  try { doc.addImage(TE_LOGO, 'PNG', 10, 4, 42, 22); } catch(e) {}
+  // Logo
+  const logoData = branding?.logo_url || TE_LOGO;
+  const logoFormat = logoData?.startsWith('data:image/jpeg') ? 'JPEG' : 'PNG';
+  try { doc.addImage(logoData, logoFormat, 10, 4, 42, 22); } catch(e) { console.warn('PDF logo error:', e); }
   // DrillTrack text
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);
@@ -37,7 +39,7 @@ function drawHeader(doc, title, subtitle) {
   doc.text('DRILLTRACK', 56, 13);
   doc.setFontSize(5.5);
   doc.setTextColor(...C.accent);
-  doc.text('GEOTECHNICAL FIELD OPERATIONS', 56, 19);
+  doc.text((branding?.tagline || 'GEOTECHNICAL FIELD OPERATIONS').toUpperCase(), 56, 19);
   // Title
   doc.setFontSize(12);
   doc.setTextColor(...C.white);
@@ -113,7 +115,7 @@ function checkPage(doc, y, needed = 30) {
   const h = doc.internal.pageSize.getHeight();
   if (y + needed > h - 20) {
     doc.addPage();
-    drawHeader(doc, '', '');
+    drawHeader(doc, '', '', doc._branding);
     return 40;
   }
   return y;
@@ -122,12 +124,13 @@ function checkPage(doc, y, needed = 30) {
 // =====================================================================
 // DAILY REPORT PDF
 // =====================================================================
-export async function generateDailyReportPDF(report) {
+export async function generateDailyReportPDF(report, branding) {
   
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  doc._branding = branding;
   const w = doc.internal.pageSize.getWidth();
 
-  drawHeader(doc, 'DAILY DRILLER REPORT', report.reportNumber);
+  drawHeader(doc, 'DAILY DRILLER REPORT', report.reportNumber, branding);
 
   let y = 40;
 
@@ -286,12 +289,13 @@ export async function generateDailyReportPDF(report) {
 // =====================================================================
 // WORK ORDER PDF
 // =====================================================================
-export async function generateWorkOrderPDF(wo) {
+export async function generateWorkOrderPDF(wo, branding) {
   
   const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'letter' });
+  doc._branding = branding;
   const w = doc.internal.pageSize.getWidth();
 
-  drawHeader(doc, 'WORK ORDER', wo.woNumber);
+  drawHeader(doc, 'WORK ORDER', wo.woNumber, branding);
 
   let y = 40;
 
@@ -440,14 +444,14 @@ export async function generateWorkOrderPDF(wo) {
 }
 
 // ─── Download helper ─────────────────────────────────────────────────
-export async function downloadDailyReportPDF(report) {
-  const doc = await generateDailyReportPDF(report);
+export async function downloadDailyReportPDF(report, branding) {
+  const doc = await generateDailyReportPDF(report, branding);
   const filename = `DR-${report.reportNumber || report.date}-${(report.projectName || 'report').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
   doc.save(filename);
 }
 
-export async function downloadWorkOrderPDF(wo) {
-  const doc = await generateWorkOrderPDF(wo);
+export async function downloadWorkOrderPDF(wo, branding) {
+  const doc = await generateWorkOrderPDF(wo, branding);
   const filename = `WO-${wo.woNumber || 'order'}-${(wo.projectName || wo.name || '').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
   doc.save(filename);
 }
