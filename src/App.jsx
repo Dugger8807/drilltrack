@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { theme } from "./constants.js";
 import { Icon, Btn } from "./ui.jsx";
 import { useIsMobile } from "./useMediaQuery.js";
