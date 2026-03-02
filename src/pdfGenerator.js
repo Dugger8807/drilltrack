@@ -445,6 +445,7 @@ export async function generateWorkOrderPDF(wo, branding) {
 
 // ─── Download helper ─────────────────────────────────────────────────
 export async function downloadDailyReportPDF(report, branding) {
+  console.log('PDF branding:', branding ? `logo_url: ${branding.logo_url?.substring(0, 30)}..., company: ${branding.company_name}` : 'NULL');
   const doc = await generateDailyReportPDF(report, branding);
   const filename = `DR-${report.reportNumber || report.date}-${(report.projectName || 'report').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`;
   doc.save(filename);
